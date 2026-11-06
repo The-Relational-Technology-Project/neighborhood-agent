@@ -38,7 +38,7 @@ async function readDocs(dir) {
     }
     return out;
 }
-function yamlList(text, key) {
+function yamlList(text, key, file, errors) {
     if (!text.trim())
         return [];
     try {
@@ -47,7 +47,9 @@ function yamlList(text, key) {
         return Array.isArray(list) ? list : [];
     }
     catch (err) {
-        console.warn(`[repo] could not parse ${key}:`, err.message);
+        const msg = `${file}: ${err.message.split("\n")[0]}`;
+        console.warn(`[repo] could not parse ${msg}`);
+        errors.push(msg);
         return [];
     }
 }
@@ -166,8 +168,9 @@ export async function repoSha(root) {
     }
 }
 export async function loadRepo(root) {
+    const loadErrors = [];
     const placeMd = await readText(path.join(root, "place.md"));
-    const sources = yamlList(await readText(path.join(root, "sources.yml")), "sources");
+    const sources = yamlList(await readText(path.join(root, "sources.yml")), "sources", "sources.yml", loadErrors);
     const peopleText = await readText(path.join(root, "people.yml"));
     const constituents = [];
     for (const name of await listMd(path.join(root, "constituents"))) {
@@ -203,6 +206,7 @@ export async function loadRepo(root) {
             }
             catch (err) {
                 console.warn(`[repo] could not parse recs/${name}:`, err.message);
+                loadErrors.push(`recs/${name}: ${err.message.split("\n")[0]}`);
             }
         }
     }
@@ -215,10 +219,11 @@ export async function loadRepo(root) {
         readmeMd: await readText(path.join(root, "README.md")),
         sources,
         constituents,
-        people: yamlList(peopleText, "people"),
-        orgs: yamlList(peopleText, "orgs"),
-        places: yamlList(await readText(path.join(root, "places.yml")), "places"),
-        resources: yamlList(await readText(path.join(root, "resources.yml")), "resources"),
+        people: yamlList(peopleText, "people", "people.yml", loadErrors),
+        orgs: yamlList(peopleText, "orgs", "people.yml", loadErrors),
+        places: yamlList(await readText(path.join(root, "places.yml")), "places", "places.yml", loadErrors),
+        resources: yamlList(await readText(path.join(root, "resources.yml")), "resources", "resources.yml", loadErrors),
+        loadErrors,
         events: await readDocs(path.join(root, "events")),
         proposals: await readDocs(path.join(root, "proposals")),
         corrections,

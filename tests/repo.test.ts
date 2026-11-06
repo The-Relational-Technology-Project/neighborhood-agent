@@ -25,6 +25,15 @@ describe("data repo loading", () => {
     expect(repo.settings.daily_note).toBe("off");
   });
 
+  it("reports a file that doesn't parse instead of silently dropping it", async () => {
+    const os = await import("node:os"); const path = await import("node:path");
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "badrepo-"));
+    await fs.writeFile(path.join(dir, "sources.yml"), "sources:\n  - id: a\n    license: one: two: three\n");
+    const repo = await loadRepo(dir);
+    expect(repo.sources).toEqual([]);
+    expect(repo.loadErrors[0]).toMatch(/^sources\.yml: /);
+  });
+
   it("skips templates and READMEs inside folders", async () => {
     const repo = await loadRepo(FIXTURE);
     expect(repo.events.some((e) => e.file.startsWith("_"))).toBe(false);
@@ -63,6 +72,6 @@ describe("data repo loading", () => {
     expect(repo.constituents.map((c) => c.slug).sort()).toEqual(["coyotes", "dunes", "ocean", "plovers"]);
     expect(repo.resources.some((r) => r.name === "Community Supplies")).toBe(true);
     const live = repo.sources.filter((s) => s.status === "live" && !s.vital_sign);
-    for (const s of live) expect(s.adapter, `${s.id} needs an adapter`).toBeTruthy();
+    for (const s of live) expect(s.adapter || (s as unknown as { live_query?: string }).live_query, `${s.id} needs an adapter or live_query`).toBeTruthy();
   });
 });

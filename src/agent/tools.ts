@@ -16,13 +16,13 @@ export interface ToolContext {
   onDraft?: (d: Draft) => void;
 }
 
-const KINDS: RecordKind[] = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation"];
+const KINDS: RecordKind[] = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation", "development"];
 
 export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: "search_data",
     description:
-      "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), open proposals, merged corrections, news, constituents. Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
+      "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents. Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
     input_schema: {
       type: "object",
       properties: {
@@ -52,6 +52,23 @@ export const toolDefinitions: Anthropic.Tool[] = [
       type: "object",
       properties: { name: { type: "string", description: "A name or a topic, e.g. 'Black Bird', 'coyotes', 'tool library', 'beach cleanups'." } },
       required: ["name"],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
+  {
+    name: "city_311",
+    description:
+      "Live 311 data for the neighborhood from the city's open data: counts by type and status, and the most recent cases, optionally filtered by topic (pothole, graffiti, tree, noise, trash, encampment, parking, streetlight...), street, open/closed, and how many days back. Or look up one case by its number. Addresses come back at block level. Use this for anything about reported problems or a 311 case's status.",
+    input_schema: {
+      type: "object",
+      properties: {
+        case_id: { type: "string", description: "A 311 case number, if the neighbor has one." },
+        topic: { type: "string", description: "One word or short phrase to match the request type, e.g. 'pothole', 'graffiti', 'tree', 'noise', 'streetlight'." },
+        street: { type: "string", description: "A street name, e.g. 'Judah' or '46th Ave'." },
+        status: { type: "string", enum: ["open", "closed", "any"] },
+        days: { type: "integer", description: "How many days back, default 30, max 365." },
+      },
       additionalProperties: false,
     },
     strict: true,
@@ -114,6 +131,10 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
       const hits = ctx.index.search(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
       if (!hits.length) return `Nothing in the repo matches "${q}". Say you don't know; do not invent hours or contacts.`;
       return hits.map(formatRecord).join("\n\n");
+    }
+    case "city_311": {
+      const { run311 } = await import("./city311.js");
+      return await run311(ctx.repo, { case_id: args.case_id ? String(args.case_id) : undefined, topic: args.topic ? String(args.topic) : undefined, street: args.street ? String(args.street) : undefined, status: args.status ? (String(args.status) as "open" | "closed" | "any") : undefined, days: args.days ? Number(args.days) : undefined });
     }
     case "draft_pr": {
       const kind = String(args.kind) as DraftKind;

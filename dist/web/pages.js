@@ -84,6 +84,7 @@ export function sourcesPage(state, signs) {
     const body = `
 <p class="stamp">Sources</p>
 <h1>What it reads</h1>
+${state.loadErrors.length ? `<p class="note err">The latest change to the data repo didn't parse, so Knowy is still using the version before it: ${esc(state.loadErrors.join("; "))}</p>` : ""}
 <p class="sub">Every source, from <a href="${esc(state.github.repoUrl)}/blob/main/sources.yml">sources.yml</a>. If it isn't here, the agent doesn't know it. Index last built ${esc(state.lastBuild?.slice(0, 16).replace("T", " ") ?? "never")}; ${state.index.size} records.</p>
 <table class="stack"><tr><th>Source</th><th>Status</th><th>Last fetched</th><th>Records</th><th>Permission note</th></tr>${rows}</table>
 <h2>Vital signs right now</h2>

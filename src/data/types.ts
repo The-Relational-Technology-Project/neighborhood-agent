@@ -10,7 +10,8 @@ export type RecordKind =
   | "archive-note"
   | "note"
   | "constituent"
-  | "recommendation";
+  | "recommendation"
+  | "development";
 
 export interface SourceRef {
   id: string;
@@ -156,6 +157,8 @@ export interface DataRepo {
   /** Neighbors' recommendations, one file per source under recs/. */
   recs: RecsFile[];
   questionLogMd: string;
+  /** Files that failed to parse on this load (e.g. "sources.yml: bad indentation at line 4"). */
+  loadErrors: string[];
   /** Settings parsed from place.md (`key: value` lines at the end). */
   settings: Record<string, string>;
 }

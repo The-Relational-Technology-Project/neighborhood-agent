@@ -36,10 +36,10 @@ describe("system prompt", () => {
 });
 
 describe("tools", () => {
-  it("defines exactly the four tools; the three read tools are strict", () => {
-    expect(toolDefinitions.map((t) => t.name)).toEqual(["search_data", "get_vital_signs", "lookup_person_or_place", "draft_pr"]);
-    for (const t of toolDefinitions.slice(0, 3)) expect((t as { strict?: boolean }).strict).toBe(true);
-    expect((toolDefinitions[3] as { strict?: boolean }).strict).toBeUndefined();
+  it("defines the read tools (strict) and draft_pr", () => {
+    expect(toolDefinitions.map((t) => t.name)).toEqual(["search_data", "get_vital_signs", "lookup_person_or_place", "city_311", "draft_pr"]);
+    for (const t of toolDefinitions.slice(0, 4)) expect((t as { strict?: boolean }).strict).toBe(true);
+    expect((toolDefinitions[4] as { strict?: boolean }).strict).toBeUndefined();
   });
 
   it("search_data returns records with source and fetch time", async () => {

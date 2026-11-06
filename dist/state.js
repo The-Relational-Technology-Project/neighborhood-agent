@@ -19,6 +19,8 @@ export class AppState {
     statuses = [];
     /** Files present in the data repo's brand/ folder (logo.webp, mark.webp, favicon.png, ...). */
     brand = new Set();
+    /** Parse errors from the latest data repo load; when set, the previous good load stays in service. */
+    loadErrors = [];
     lastBuild;
     budget;
     log;
@@ -49,7 +51,13 @@ export class AppState {
             return this.building;
         this.building = (async () => {
             const root = await ensureRepo(this.cfg.dataRepo, this.cfg.cacheDir, this.cfg.dataRepoBranch);
-            this.repo = await loadRepo(root);
+            const next = await loadRepo(root);
+            this.loadErrors = next.loadErrors;
+            if (next.loadErrors.length && this.repo) {
+                console.warn("[state] data repo has errors; keeping the last good load:", next.loadErrors.join("; "));
+                return;
+            }
+            this.repo = next;
             try {
                 this.brand = new Set((await fs.readdir(path.join(root, "brand"))).filter((f) => /^[\w.-]+\.(webp|png|jpg|svg)$/.test(f)));
             }
