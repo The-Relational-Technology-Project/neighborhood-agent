@@ -13,7 +13,8 @@ export function layout(s) {
 <meta name="theme-color" content="#f4efe4">
 <meta name="format-detection" content="telephone=no">
 <title>${esc(s.title)}</title>
-<meta name="description" content="A neighborhood agent for the ${esc(s.siteName)}: answers with sources, points to people, and turns asks into public proposals.">
+<meta name="description" content="${esc(s.siteName)}${s.tagline ? `, ${esc(s.tagline.toLowerCase())}` : ""} for ${esc((s.placeName ?? "this neighborhood").replace(/^The /, "the "))}. Answers with sources, points to people, and turns asks into public proposals.">
+<meta property="og:title" content="${esc(s.siteName)}${s.tagline ? ` · ${esc(s.tagline)}` : ""}">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23f4efe4'/><circle cx='16' cy='16' r='7' fill='%23d9622b'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +27,8 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex San
 a{color:var(--sea)}
 main{max-width:720px;margin:0 auto;padding:20px 16px 72px}
 header.top{max-width:720px;margin:0 auto;padding:18px 16px 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px}
-header.top .name{font-family:"Caveat",cursive;font-size:30px;font-weight:600;text-decoration:none;color:var(--ink);line-height:1}
+header.top .tagline{white-space:nowrap;font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--orange)}
+header.top .name{white-space:nowrap;font-family:"Caveat",cursive;font-size:30px;font-weight:600;text-decoration:none;color:var(--ink);line-height:1}
 header.top nav{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:"Special Elite",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 header.top nav a{color:var(--quiet);text-decoration:none;padding:2px 0;border-bottom:2px solid transparent}
 header.top nav a.on{color:var(--orange);border-color:var(--orange)}
@@ -91,7 +93,7 @@ ul{padding-left:20px}li{margin:0 0 6px}
 .tag{font-family:"Special Elite",monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--rule);border-radius:999px;padding:1px 8px;color:var(--quiet)}
 /* ---- home: an app-shaped chat. Header, scrolling log, composer pinned at the bottom. ---- */
 body.home{overscroll-behavior-y:none}
-body.home header.top{height:52px;padding-top:12px;padding-bottom:0;align-items:center}
+body.home header.top{height:52px;padding-top:12px;padding-bottom:0;align-items:center;flex-wrap:nowrap;gap:12px}
 body.home header.top .name{font-size:28px}
 body.home main{height:calc(100dvh - 52px);min-height:0;display:flex;flex-direction:column;padding:6px 16px 0;overflow:hidden}
 body.home .vline,body.home .suggest,body.home header.top{flex:0 0 auto}
@@ -104,6 +106,7 @@ form.ask textarea{line-height:1.4;max-height:132px;overflow-y:auto;resize:none}
 form.ask button,.draft .actions button{min-height:46px;min-width:64px}
 .suggest button{min-height:40px;touch-action:manipulation}
 button,a,textarea{-webkit-tap-highlight-color:rgba(217,98,43,.15)}
+@media (max-width:360px){header.top .tagline{display:none}}
 @media (max-width:640px){
   body{font-size:16px}
   .vline{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;margin:0 -16px 8px;padding:0 16px;mask-image:linear-gradient(90deg,#000 88%,transparent)}
@@ -130,14 +133,14 @@ ${s.head ?? ""}
 </head>
 <body${s.path === "/" ? ' class="home"' : ""}>
 <header class="top">
-  <a class="name" href="/">${esc(s.siteName)}</a>
+  <a class="name" href="/">${esc(s.siteName)}</a>${s.tagline ? `<span class="tagline">${esc(s.tagline)}</span>` : ""}
   ${s.path === "/" ? "" : `<nav>${NAV.map(([href, label]) => `<a href="${href}"${href === s.path ? ' class="on"' : ""}>${label}</a>`).join("")}</nav>`}
 </header>
 <main>
 ${s.body}
 </main>
 <footer>
-  <p>An agent for ${esc((s.placeName ?? "this neighborhood").replace(/^The /, "the "))} that works for the place, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it drafts a public pull request and the neighborhood's stewards review it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
+  <p>${esc(s.siteName)} works for ${esc((s.placeName ?? "this neighborhood").replace(/^The /, "the "))}, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it drafts a public pull request and the neighborhood's stewards review it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
   <p class="links">${NAV.filter(([href]) => href !== "/").map(([href, label]) => `<a href="${href}">${label}</a>`).join(" · ")} · <a href="${esc(s.repoUrl)}">The repo</a></p>
   <p class="fine">Data CC BY 4.0 · <a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">code, MIT</a> · <a href="https://relationaltechproject.org">Relational Tech Project</a></p>
 </footer>

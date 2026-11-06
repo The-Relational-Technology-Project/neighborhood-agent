@@ -6,13 +6,20 @@ function siteName(state: AppState): string {
   const m = state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/);
   return m?.[1] ?? "Neighborhood agent";
 }
+function tagline(state: AppState): string | undefined {
+  return state.repo.placeMd.match(/^Tagline:\s*(.+?)\s*$/m)?.[1];
+}
+/** A neighbor-facing line about the name, from `About:` in place.md. */
+function aboutLine(state: AppState): string | undefined {
+  return state.repo.placeMd.match(/^About:\s*(.+?)\s*$/m)?.[1];
+}
 function placeName(state: AppState): string {
   const m = state.repo.placeMd.match(/^#\s+(.+)$/m);
   return m?.[1] ?? "this neighborhood";
 }
 
 const shell = (state: AppState, path: string, title: string, body: string, head?: string) =>
-  layout({ title: `${title} · ${siteName(state)}`, siteName: siteName(state), placeName: placeName(state), repoUrl: state.github.repoUrl, path, body, head });
+  layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), repoUrl: state.github.repoUrl, path, body, head });
 
 /** One compact line of the most-asked vital signs; the full set is on /sources. */
 function vitalLine(signs: VitalSign[]): string {
@@ -55,8 +62,9 @@ export function aboutPage(state: AppState): string {
   const stewards = state.repo.stewardsMd.match(/\|[\s\S]*?\n\n/)?.[0] ?? "";
   const body = `
 <p class="stamp">About</p>
-<h1>A neighborhood agent</h1>
-<p class="sub">A personal AI agent gets better the more it knows about you. This one belongs to a place instead, and everything it knows is public and shared.</p>
+<h1>${esc(siteName(state))}</h1>
+<p class="sub">${esc(tagline(state) ?? "A neighborhood agent")} for ${esc(placeName(state).replace(/^The /, "the "))}. A personal AI agent gets better the more it knows about you. This one belongs to a place instead, and everything it knows is public and shared.</p>
+${aboutLine(state) ? `<p class="note">${esc(aboutLine(state))}</p>` : ""}
 <div class="grid">
   <div class="card"><b class="k">It reads</b><p>Public neighborhood data only: sites neighbors already built, public feeds, this repo. Everything it knows is listed on the <a href="/sources">sources page</a>.</p></div>
   <div class="card"><b class="k">It cites</b><p>Every fact comes with where it came from and when. No source, no claim. If it doesn't know, it says so and names who might.</p></div>
