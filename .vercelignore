@@ -1,0 +1,11 @@
+# Vercel runs api/index.js over the committed dist/. Keep TypeScript sources out of the upload so
+# Vercel's own type check (which uses its own compiler settings) has nothing to scan.
+src
+tests
+fixtures
+tsconfig.json
+vitest.config.ts
+golden.yml
+Dockerfile
+fly.toml
+.cache
