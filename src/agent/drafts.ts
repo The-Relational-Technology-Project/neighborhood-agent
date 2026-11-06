@@ -2,7 +2,7 @@
  * Drafts for the three write actions. The model asks for a draft; the app holds it in memory;
  * only a neighbor's tap on "Yes, open the PR" turns it into a pull request.
  */
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { toFrontmatter } from "../data/frontmatter.js";
 import { localDate } from "../data/index.js";
 import { slug } from "../adapters/types.js";
@@ -123,4 +123,34 @@ export function makeDraft(input: DraftInput, today = localDate()): Draft {
   };
   drafts.set(draft.id, draft);
   return draft;
+}
+
+/**
+ * A draft can also travel with the client, signed, so "Yes, open the PR" works on hosts that don't
+ * keep memory between requests. The secret comes from DRAFT_SECRET, else from the API key's hash.
+ */
+function secret(): string {
+  return process.env.DRAFT_SECRET || createHmac("sha256", "neighborhood-agent").update(process.env.ANTHROPIC_API_KEY ?? "unsigned").digest("hex");
+}
+
+export function signDraft(d: Draft): string {
+  const payload = Buffer.from(JSON.stringify(d)).toString("base64url");
+  const sig = createHmac("sha256", secret()).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+export function verifyDraft(token: string | undefined): Draft | undefined {
+  if (!token || !token.includes(".")) return undefined;
+  const [payload, sig] = token.split(".");
+  const expected = createHmac("sha256", secret()).update(payload).digest("base64url");
+  const a = Buffer.from(sig), b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return undefined;
+  try {
+    const d = JSON.parse(Buffer.from(payload, "base64url").toString()) as Draft;
+    if (!d.path || !d.content || !["event", "correction", "proposal"].includes(d.kind)) return undefined;
+    if (Date.parse(d.created_at) < Date.now() - DRAFT_TTL_MS) return undefined;
+    return d;
+  } catch {
+    return undefined;
+  }
 }

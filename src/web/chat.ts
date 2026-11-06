@@ -34,7 +34,7 @@ export const chatScript = String.raw`
     no.onclick = function(){ box.remove(); addMsg('assistant', "Okay, I won't open it. Tell me what to change, or we can leave it."); };
     yes.onclick = function(){
       yes.disabled = true; no.disabled = true; yes.textContent = 'Opening…';
-      fetch('/api/confirm', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draft_id: d.id }) })
+      fetch('/api/confirm', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draft_id: d.id, token: d.token }) })
         .then(function(r){ return r.json(); })
         .then(function(res){
           actions.remove();

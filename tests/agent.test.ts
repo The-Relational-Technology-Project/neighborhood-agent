@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { buildSystem, BEHAVIOR } from "../src/agent/prompt.js";
-import { drafts, makeDraft } from "../src/agent/drafts.js";
+import { drafts, makeDraft, signDraft, verifyDraft } from "../src/agent/drafts.js";
 import { runTool, toolDefinitions } from "../src/agent/tools.js";
 import { Budget, RateLimiter } from "../src/agent/budget.js";
 import { isoWeek, QuestionLog } from "../src/agent/questionlog.js";
@@ -92,6 +92,19 @@ describe("drafts", () => {
     expect(p.content).toContain("status: open");
     expect(p.content).toContain("## Already exists?");
     expect(p.title).toBe("Proposal: Sauna co-op");
+  });
+});
+
+describe("signed drafts (stateless confirm)", () => {
+  it("round-trips and rejects tampering", () => {
+    const d = makeDraft({ kind: "proposal", ask: "sauna?", fields: { title: "Sauna", what: "A sauna." } }, "2026-11-06");
+    const token = signDraft(d);
+    expect(verifyDraft(token)?.path).toBe(d.path);
+    const [payload, sig] = token.split(".");
+    const forged = Buffer.from(JSON.stringify({ ...d, path: "STEWARDS.md" })).toString("base64url");
+    expect(verifyDraft(`${forged}.${sig}`)).toBeUndefined();
+    expect(verifyDraft(payload)).toBeUndefined();
+    expect(verifyDraft(undefined)).toBeUndefined();
   });
 });
 

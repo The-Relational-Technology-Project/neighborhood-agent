@@ -65,10 +65,20 @@ function parseSettings(placeMd: string): Record<string, string> {
   return settings;
 }
 
-/** Ensure the repo is on disk. Returns its root path. */
+/**
+ * Ensure the repo is on disk. Returns its root path.
+ * A git URL is cloned with git when it is available; otherwise (serverless hosts like Vercel) a
+ * public GitHub repo is fetched file by file through the GitHub API into the cache.
+ */
 export async function ensureRepo(dataRepo: string, cacheDir: string, branch = "main"): Promise<string> {
   if (!isGitUrl(dataRepo)) return path.resolve(dataRepo);
   const root = path.join(cacheDir, "data-repo");
+  const gh = dataRepo.match(/github\.com[/:]([^/]+)\/([^/.]+)(?:\.git)?\/?$/);
+  const useApi = process.env.DATA_REPO_FETCH === "api" || (gh && !(await hasGit()));
+  if (useApi && gh) {
+    await fetchRepoViaGithubApi(`${gh[1]}/${gh[2]}`, branch, root);
+    return root;
+  }
   try {
     await fs.access(path.join(root, ".git"));
     await exec("git", ["-C", root, "fetch", "--depth", "1", "origin", branch], { timeout: 60_000 });
@@ -81,12 +91,61 @@ export async function ensureRepo(dataRepo: string, cacheDir: string, branch = "m
   return root;
 }
 
+async function hasGit(): Promise<boolean> {
+  try { await exec("git", ["--version"], { timeout: 5_000 }); return true; } catch { return false; }
+}
+
+const GH_HEADERS: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "neighborhood-agent" };
+
+/** GitHub API GET: with GITHUB_TOKEN when set (higher rate limit), falling back to anonymous if that token is rejected. */
+async function ghGet(url: string): Promise<Response> {
+  const token = process.env.GITHUB_TOKEN;
+  if (token) {
+    const res = await fetch(url, { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
+    if (res.status !== 401 && res.status !== 403) return res;
+  }
+  return fetch(url, { headers: GH_HEADERS, signal: AbortSignal.timeout(20_000) });
+}
+
+/**
+ * Fetch a public repo's tree at a branch through the GitHub API: one API call for the tree (the
+ * tree sha is the version), then raw files, which are not API-rate-limited. Skips when unchanged.
+ * Anonymous API calls are limited to 60 an hour per IP; set GITHUB_TOKEN on shared hosts.
+ */
+export async function fetchRepoViaGithubApi(ownerRepo: string, branch: string, root: string): Promise<string> {
+  const treeRes = await ghGet(`https://api.github.com/repos/${ownerRepo}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+  if (!treeRes.ok) throw new Error(`GitHub tree ${ownerRepo}@${branch}: ${treeRes.status}${treeRes.status === 403 ? " (rate limited; set GITHUB_TOKEN)" : ""}`);
+  const body = (await treeRes.json()) as { sha: string; tree: Array<{ path: string; type: string; size?: number }> };
+  const sha = body.sha;
+  const shaFile = path.join(root, ".sha");
+  try { if ((await fs.readFile(shaFile, "utf8")).trim() === sha) return sha; } catch { /* first fetch */ }
+  const files = body.tree.filter((t) => t.type === "blob" && (t.size ?? 0) < 2_000_000 && !t.path.startsWith(".git"));
+  const fresh = `${root}.next`;
+  await fs.rm(fresh, { recursive: true, force: true });
+  await fs.mkdir(fresh, { recursive: true });
+  const queue = [...files];
+  const worker = async () => {
+    for (let f = queue.shift(); f; f = queue.shift()) {
+      const res = await fetch(`https://raw.githubusercontent.com/${ownerRepo}/${encodeURIComponent(branch)}/${f.path}`, { headers: { "User-Agent": "neighborhood-agent" }, signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error(`raw ${f.path}: ${res.status}`);
+      const dest = path.join(fresh, f.path);
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.writeFile(dest, Buffer.from(await res.arrayBuffer()));
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  await fs.writeFile(path.join(fresh, ".sha"), sha);
+  await fs.rm(root, { recursive: true, force: true });
+  await fs.rename(fresh, root);
+  return sha;
+}
+
 export async function repoSha(root: string): Promise<string | undefined> {
   try {
     const { stdout } = await exec("git", ["-C", root, "rev-parse", "HEAD"], { timeout: 10_000 });
     return stdout.trim();
   } catch {
-    return undefined;
+    try { return (await fs.readFile(path.join(root, ".sha"), "utf8")).trim(); } catch { return undefined; }
   }
 }
 

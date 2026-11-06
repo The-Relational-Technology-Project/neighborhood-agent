@@ -57,6 +57,22 @@ export class AppState {
     return this.building;
   }
 
+  private initPromise?: Promise<void>;
+
+  /** Initialize once per process (serverless hosts call this on every request). */
+  ready(): Promise<void> {
+    if (!this.initPromise) this.initPromise = this.init().catch((err) => { this.initPromise = undefined; throw err; });
+    return this.initPromise;
+  }
+
+  /** For hosts with no timers: kick off a rebuild in the background when the last one is old. */
+  refreshIfStale(): void {
+    const every = Math.max(1, this.cfg.repoPollMinutes) * 60_000;
+    if (this.lastBuild && Date.now() - Date.parse(this.lastBuild) > every) {
+      this.rebuild().catch((err) => console.warn("[state] rebuild failed:", (err as Error).message));
+    }
+  }
+
   /** Poll the data repo; rebuild when main moves. Also refreshes expired source caches. */
   startPolling(): void {
     const every = Math.max(1, this.cfg.repoPollMinutes) * 60_000;

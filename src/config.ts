@@ -54,7 +54,7 @@ export function loadConfig(): Config {
     dataRepo,
     dataRepoGithub,
     dataRepoBranch: env("DATA_REPO_BRANCH", "main")!,
-    cacheDir: env("CACHE_DIR", path.resolve(process.cwd(), ".cache"))!,
+    cacheDir: env("CACHE_DIR", process.env.VERCEL ? "/tmp/neighborhood-agent-cache" : path.resolve(process.cwd(), ".cache"))!,
     port: num("PORT", 3000),
     model: env("MODEL", "claude-haiku-5-5")!,
     classifyModel: env("CLASSIFY_MODEL", env("MODEL", "claude-haiku-5-5"))!,
