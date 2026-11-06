@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci --no-audit --no-fund",
   "buildCommand": "echo 'dist/ is committed; nothing to build on Vercel'",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
-  "functions": { "api/index.js": { "maxDuration": 60 } }
+  "functions": { "index.js": { "maxDuration": 60 } }
 }

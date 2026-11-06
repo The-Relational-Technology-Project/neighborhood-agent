@@ -14,7 +14,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
-    "prepare": "tsc -p tsconfig.json || true",
+    "prepare": "test -f tsconfig.json && tsc -p tsconfig.json || true",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "ask": "tsx src/cli.ts ask",
