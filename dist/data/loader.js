@@ -25,6 +25,11 @@ export async function loadSources(repo, cacheDir, opts = {}) {
             continue;
         if (opts.only && !opts.only.includes(source.id))
             continue;
+        const keyEnv = source.config?.key_env ? String(source.config.key_env) : undefined;
+        if (source.config?.optional && keyEnv && !process.env[keyEnv]) {
+            status.skipped = `set ${keyEnv} to read this`;
+            continue;
+        }
         const adapter = adapters[source.adapter];
         if (!adapter) {
             status.error = `no adapter named ${source.adapter}`;

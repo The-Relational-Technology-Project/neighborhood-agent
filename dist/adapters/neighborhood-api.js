@@ -1,3 +1,5 @@
+import { localDate } from "../data/index.js";
+import { toLocalIso } from "./ics.js";
 import { sourceRef } from "./types.js";
 const COLLECTIONS = [
     ["events", "event"],
@@ -7,27 +9,49 @@ const COLLECTIONS = [
     ["notices", "note"],
     ["dreams", "proposal"],
 ];
+export function fillDates(q, now = new Date()) {
+    return q.replace(/\{today(?:\+(\d+))?\}/g, (_m, n) => {
+        const d = new Date(now);
+        if (n)
+            d.setDate(d.getDate() + Number(n));
+        return localDate(d);
+    });
+}
+function urls(ctx) {
+    const c = ctx.source.config ?? {};
+    const query = c.query ? fillDates(String(c.query)) : "";
+    const withQuery = (u) => (query ? `${u}${u.includes("?") ? "&" : "?"}${query}` : u);
+    const endpoints = c.endpoints;
+    if (endpoints && Object.keys(endpoints).length)
+        return Object.entries(endpoints).map(([coll, u]) => [coll, withQuery(String(u))]);
+    const base = String(c.base_url ?? "").replace(/\/$/, "");
+    if (!base)
+        return [];
+    return COLLECTIONS.map(([coll]) => [coll, withQuery(`${base}/${coll}`)]);
+}
 export const neighborhoodApiAdapter = {
     id: "neighborhood-api",
     async fetch(ctx) {
-        const base = String(ctx.source.config?.base_url ?? "").replace(/\/$/, "");
-        if (!base)
-            throw new Error("neighborhood-api: base_url not set");
+        const list = urls(ctx);
+        if (!list.length)
+            throw new Error("neighborhood-api: set base_url or endpoints");
         const out = {};
-        for (const [coll] of COLLECTIONS) {
+        let lastErr;
+        for (const [coll, url] of list) {
             try {
-                const res = await ctx.http(`${base}/${coll}`);
+                const res = await ctx.http(url);
                 if (!res.ok)
-                    continue;
+                    throw new Error(`${coll} ${res.status}`);
                 const body = (await res.json());
-                out[coll] = Array.isArray(body) ? body : (body?.data ?? []);
+                const b = body;
+                out[coll] = Array.isArray(body) ? body : (b?.[coll] ?? b?.data ?? []);
             }
-            catch {
-                // a missing collection is fine
+            catch (err) {
+                lastErr = err; // a missing collection is fine as long as one works
             }
         }
         if (!Object.keys(out).length)
-            throw new Error("neighborhood-api: nothing readable");
+            throw new Error(`neighborhood-api: nothing readable (${lastErr?.message ?? "no response"})`);
         return out;
     },
     normalize(raw, ctx) {
@@ -37,19 +61,25 @@ export const neighborhoodApiAdapter = {
         for (const [coll, kind] of COLLECTIONS) {
             for (const item of data[coll] ?? []) {
                 const loc = item.location;
+                // Spec times carry an offset; show them on the neighborhood's wall clock.
+                const startIso = item.start ? String(item.start) : undefined;
+                const endIso = item.end ? String(item.end) : undefined;
+                const start = startIso && !Number.isNaN(Date.parse(startIso)) ? toLocalIso(new Date(startIso)) : startIso;
+                const end = endIso && !Number.isNaN(Date.parse(endIso)) ? toLocalIso(new Date(endIso)) : endIso;
+                const category = Array.isArray(item.category) ? item.category.map(String) : item.category ? [String(item.category)] : [];
                 out.push({
                     id: `${src.id}:${coll}:${String(item.id ?? item.name)}`,
                     kind,
                     title: String(item.name ?? item.title ?? ""),
-                    text: String(item.description ?? ""),
-                    date: item.start ? String(item.start).slice(0, 10) : undefined,
-                    start: item.start ? String(item.start) : undefined,
-                    end: item.end ? String(item.end) : undefined,
-                    location: loc ? [loc.name, loc.address].filter(Boolean).join(", ") : undefined,
+                    text: [item.description ? String(item.description) : "", category.length ? `Type: ${category.join(", ")}.` : "", item.cost ? `Cost: ${String(item.cost)}.` : ""].filter(Boolean).join(" "),
+                    date: start ? start.slice(0, 10) : undefined,
+                    start,
+                    end,
+                    location: loc ? [loc.name, loc.address].filter(Boolean).join(", ") || undefined : undefined,
                     url: item.url ? String(item.url) : src.url,
                     source: src,
                     fetched_at: ctx.fetchedAt,
-                    tags: Array.isArray(item.category) ? item.category.map(String) : [],
+                    tags: category,
                     extra: item,
                 });
             }

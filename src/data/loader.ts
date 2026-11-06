@@ -22,6 +22,8 @@ export interface SourceStatus {
   vital_sign?: boolean;
   license?: string;
   note?: string;
+  /** Why an optional source wasn't read (e.g. its key isn't set). */
+  skipped?: string;
 }
 
 export interface LoadResult {
@@ -46,6 +48,11 @@ export async function loadSources(repo: DataRepo, cacheDir: string, opts: { forc
     if (source.vital_sign && source.adapter !== "repo") continue; // vital signs are read live by src/vitals
     if (source.status !== "live" || !source.adapter) continue;
     if (opts.only && !opts.only.includes(source.id)) continue;
+    const keyEnv = source.config?.key_env ? String(source.config.key_env) : undefined;
+    if (source.config?.optional && keyEnv && !process.env[keyEnv]) {
+      status.skipped = `set ${keyEnv} to read this`;
+      continue;
+    }
     const adapter = adapters[source.adapter];
     if (!adapter) {
       status.error = `no adapter named ${source.adapter}`;

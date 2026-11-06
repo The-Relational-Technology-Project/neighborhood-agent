@@ -77,7 +77,7 @@ ${md(stewards)}
     return shell(state, "/about", "About", body);
 }
 export function sourcesPage(state, signs) {
-    const rows = state.statuses.map((s) => `<tr><td><a href="${esc(s.url)}">${esc(s.name)}</a>${s.note ? `<br><small>${esc(s.note)}</small>` : ""}</td><td><span class="tag">${esc(s.status)}</span>${s.vital_sign ? ' <span class="tag">vital sign</span>' : ""}</td><td>${s.fetched_at ? esc(s.fetched_at.slice(0, 16).replace("T", " ")) + (s.stale ? " (stale)" : "") : s.status === "live" && !s.vital_sign ? (s.error ? "not yet" : "") : ""}</td><td>${s.vital_sign && s.status === "live" ? "live" : s.records || ""}</td><td><small>${esc(s.license ?? "")}${s.error ? `<br><span class="err">${esc(s.error)}</span>` : ""}</small></td></tr>`).join("");
+    const rows = state.statuses.map((s) => `<tr><td><a href="${esc(s.url)}">${esc(s.name)}</a>${s.note ? `<br><small>${esc(s.note)}</small>` : ""}</td><td><span class="tag">${esc(s.status)}</span>${s.vital_sign ? ' <span class="tag">vital sign</span>' : ""}</td><td>${s.fetched_at ? esc(s.fetched_at.slice(0, 16).replace("T", " ")) + (s.stale ? " (stale)" : "") : s.status === "live" && !s.vital_sign ? (s.error ? "not yet" : "") : ""}</td><td>${s.vital_sign && s.status === "live" ? "live" : s.records || ""}</td><td><small>${esc(s.license ?? "")}${s.error ? `<br><span class="err">${esc(s.error)}</span>` : ""}${s.skipped ? `<br><i>Skipped: ${esc(s.skipped)}</i>` : ""}</small></td></tr>`).join("");
     const body = `
 <p class="stamp">Sources</p>
 <h1>What it reads</h1>

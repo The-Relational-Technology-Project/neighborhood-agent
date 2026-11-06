@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 import { applyCorrections, SearchIndex } from "../src/data/index.js";
 import { loadFixture } from "./helpers.js";
 
+describe("optional sources", () => {
+  it("skip quietly when their key isn't set", async () => {
+    const { loadRepo } = await import("../src/data/repo.js");
+    const { loadSources } = await import("../src/data/loader.js");
+    const { FIXTURE, tmpCache } = await import("./helpers.js");
+    const repo = await loadRepo(FIXTURE);
+    repo.sources.push({ id: "menus", name: "Menus", url: "https://x", type: "api", adapter: "supabase-rest", status: "live", config: { project_url: "https://x.supabase.co", key_env: "NAGENT_TEST_UNSET_KEY", optional: true, tables: [] } });
+    const { statuses } = await loadSources(repo, await tmpCache());
+    const st = statuses.find((s) => s.id === "menus")!;
+    expect(st.error).toBeUndefined();
+    expect(st.skipped).toBe("set NAGENT_TEST_UNSET_KEY to read this");
+  });
+});
+
 describe("index over the fixture repo", () => {
   it("loads repo and calendar sources without network", async () => {
     const { index, statuses } = await loadFixture();

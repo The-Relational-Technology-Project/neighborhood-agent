@@ -23,7 +23,7 @@ async function main() {
         case "index": {
             await state.init({ force: rest.includes("--force") });
             for (const s of state.statuses)
-                console.log(`${s.id.padEnd(22)} ${s.status.padEnd(9)} ${String(s.records).padStart(4)} ${s.fetched_at ?? ""} ${s.stale ? "(stale)" : ""} ${s.error ? "ERROR " + s.error : ""}`);
+                console.log(`${s.id.padEnd(22)} ${s.status.padEnd(9)} ${String(s.records).padStart(4)} ${s.fetched_at ?? ""} ${s.stale ? "(stale)" : ""} ${s.error ? "ERROR " + s.error : ""}${s.skipped ? "skipped: " + s.skipped : ""}`);
             console.log(`\n${state.index.size} records. Repo at ${state.repo.sha ?? "(no git)"}.`);
             return;
         }

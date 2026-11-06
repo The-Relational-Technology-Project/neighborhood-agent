@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { expand, parseIcs } from "../src/adapters/ics.js";
 import { parseGroupsText } from "../src/adapters/llm-txt.js";
 import { supabaseRestAdapter } from "../src/adapters/supabase-rest.js";
-import { neighborhoodApiAdapter } from "../src/adapters/neighborhood-api.js";
+import { fillDates, neighborhoodApiAdapter } from "../src/adapters/neighborhood-api.js";
 import type { AdapterContext } from "../src/adapters/types.js";
 import type { DataRepo, SourceDef } from "../src/data/types.js";
 import { looksLikeInjection } from "../src/safety/injection.js";
@@ -70,11 +70,24 @@ describe("supabase-rest adapter", () => {
 });
 
 describe("neighborhood-api adapter", () => {
+  it("reads the outersunset.today shape and files evening events on the local day", () => {
+    const c = ctx({ id: "outersunset-today", name: "outersunset.today" });
+    const raw = { events: [{ id: "e1", name: "Late show", start: "2026-11-07T03:00:00+00:00", end: "2026-11-07T05:00:00+00:00", description: null, category: ["music"], location: { name: "Sunset Village Music Hall", neighborhood: "Outer Sunset" }, url: "https://x" }] };
+    const [r] = neighborhoodApiAdapter.normalize(raw, c);
+    expect(r).toMatchObject({ kind: "event", title: "Late show", date: "2026-11-06", start: "2026-11-06T19:00:00", end: "2026-11-06T21:00:00", location: "Sunset Village Music Hall", tags: ["music"] });
+    expect(r.text).toBe("Type: music.");
+  });
+
+  it("fills {today} and {today+N} in queries", () => {
+    const now = new Date("2026-11-06T20:00:00Z");
+    expect(fillDates("start_after={today}&start_before={today+30}", now)).toBe("start_after=2026-11-06&start_before=2026-12-06");
+  });
+
   it("maps the spec's collections", () => {
     const c = ctx({ id: "napi", name: "Neighborhood API" });
     const recs = neighborhoodApiAdapter.normalize({ events: [{ id: "evt_1", name: "Book club", start: "2026-12-01T18:00:00-08:00", location: { name: "Black Bird", address: "Irving St" }, category: ["literary"] }], groups: [{ id: "g1", name: "Run club", description: "Saturdays" }] }, c);
     expect(recs).toHaveLength(2);
-    expect(recs[0]).toMatchObject({ kind: "event", date: "2026-12-01", location: "Black Bird, Irving St", tags: ["literary"] });
+    expect(recs[0]).toMatchObject({ kind: "event", date: "2026-12-01", start: "2026-12-01T18:00:00", location: "Black Bird, Irving St", tags: ["literary"] });
     expect(recs[1].kind).toBe("group");
   });
 });
