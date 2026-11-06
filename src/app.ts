@@ -1,5 +1,7 @@
 /** The public channel: one site, a few pages, one streaming chat endpoint. */
-import { Hono } from "hono";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { classify } from "./agent/classify.js";
 import { drafts, signDraft, verifyDraft } from "./agent/drafts.js";
@@ -24,6 +26,19 @@ const clientIp = (c: { req: { header: (n: string) => string | undefined } }) =>
   (c.req.header("x-forwarded-for") ?? "").split(",")[0].trim() || c.req.header("x-real-ip") || "local";
 
 app.get("/health", (c) => c.json({ ok: true, records: state.index.size, built: state.lastBuild, model: state.agent ? state.cfg.model : null, budget: { spent: Number(state.budget.spent.toFixed(4)), limit: state.budget.limit } }));
+const BRAND_TYPES: Record<string, string> = { webp: "image/webp", png: "image/png", jpg: "image/jpeg", svg: "image/svg+xml" };
+async function brandFile(c: Context, file: string) {
+  if (!/^[\w.-]+\.(webp|png|jpg|svg)$/.test(file) || !state.brand.has(file)) return c.notFound();
+  const data = await fs.readFile(path.join(state.repo.root, "brand", file));
+  return c.body(new Uint8Array(data), 200, { "content-type": BRAND_TYPES[file.split(".").pop()!], "cache-control": "public, max-age=86400, stale-while-revalidate=604800" });
+}
+app.get("/brand/:file", (c) => brandFile(c, c.req.param("file")));
+for (const f of ["favicon.png", "apple-touch-icon.png", "og.jpg"]) app.get(`/${f}`, (c) => brandFile(c, f));
+app.get("/manifest.webmanifest", (c) => {
+  const name = state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/)?.[1] ?? "Neighborhood agent";
+  const icons = [["apple-touch-icon.png", "180x180"], ["icon-512.png", "512x512"]].filter(([f]) => state.brand.has(f)).map(([f, sizes]) => ({ src: `/brand/${f}`, sizes, type: "image/png" }));
+  return c.json({ name, short_name: name.split(" ")[0], start_url: "/", display: "standalone", background_color: "#fdf8ec", theme_color: "#fdf8ec", icons }, 200, { "content-type": "application/manifest+json" });
+});
 app.get("/chat.js", (c) => c.body(chatScript, 200, { "content-type": "application/javascript; charset=utf-8", "cache-control": "public, max-age=300" }));
 
 app.get("/", async (c) => c.html(homePage(state, await safeVitals())));

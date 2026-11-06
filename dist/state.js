@@ -1,3 +1,9 @@
+/**
+ * Process-wide state: the loaded data repo, the search index, source statuses, and the services.
+ * Rebuilds the index on a schedule and whenever the data repo's main moves (poll or webhook).
+ */
+import fs from "node:fs/promises";
+import path from "node:path";
 import { Agent } from "./agent/agent.js";
 import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
@@ -11,6 +17,8 @@ export class AppState {
     repo;
     index = new SearchIndex([]);
     statuses = [];
+    /** Files present in the data repo's brand/ folder (logo.webp, mark.webp, favicon.png, ...). */
+    brand = new Set();
     lastBuild;
     budget;
     log;
@@ -42,6 +50,12 @@ export class AppState {
         this.building = (async () => {
             const root = await ensureRepo(this.cfg.dataRepo, this.cfg.cacheDir, this.cfg.dataRepoBranch);
             this.repo = await loadRepo(root);
+            try {
+                this.brand = new Set((await fs.readdir(path.join(root, "brand"))).filter((f) => /^[\w.-]+\.(webp|png|jpg|svg)$/.test(f)));
+            }
+            catch {
+                this.brand = new Set();
+            }
             const { index, statuses } = await loadSources(this.repo, this.cfg.cacheDir, opts);
             this.index = index;
             this.statuses = statuses;

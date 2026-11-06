@@ -19,7 +19,7 @@ function placeName(state: AppState): string {
 }
 
 const shell = (state: AppState, path: string, title: string, body: string, head?: string) =>
-  layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), repoUrl: state.github.repoUrl, path, body, head });
+  layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), siteUrl: state.cfg.siteUrl, brand: state.brand, repoUrl: state.github.repoUrl, path, body, head });
 
 /** One compact line of the most-asked vital signs; the full set is on /sources. */
 function vitalLine(signs: VitalSign[]): string {
@@ -42,10 +42,13 @@ export function vitalsHtml(signs: VitalSign[]): string {
 
 export function homePage(state: AppState, signs: VitalSign[]): string {
   const ready = Boolean(state.agent);
+  const logo = state.brand.has("logo.webp")
+    ? `<img src="/brand/logo.webp" alt="${esc(siteName(state))}" width="250" height="236" fetchpriority="high">`
+    : `<h1>${esc(siteName(state))}</h1>`;
   const body = `
-${vitalLine(signs)}
 <div class="chat" id="log" role="log" aria-live="polite">
-  <div class="msg a"><span class="who a">Agent</span><span class="txt">${ready ? "Ask me anything about the neighborhood. I'll tell you where I got it." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
+  <div class="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}${vitalLine(signs)}</div>
+  <div class="msg a"><span class="who a">${esc(siteName(state))}</span><span class="txt">${ready ? "Ask me anything about the neighborhood. I'll tell you where I got it." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
 <div class="composer">
 ${ready ? `<div class="suggest" id="suggest">${SUGGESTIONS.map((q) => `<button type="button">${esc(q)}</button>`).join("")}</div>` : ""}
@@ -63,7 +66,7 @@ export function aboutPage(state: AppState): string {
   const body = `
 <p class="stamp">About</p>
 <h1>${esc(siteName(state))}</h1>
-<p class="sub">${esc(tagline(state) ?? "A neighborhood agent")} for ${esc(placeName(state).replace(/^The /, "the "))}. A personal AI agent gets better the more it knows about you. This one belongs to a place instead, and everything it knows is public and shared.</p>
+<p class="sub">${esc((tagline(state) ?? "A neighborhood agent").replace(/^./, (c) => c.toUpperCase()))} for ${esc(placeName(state).replace(/^The /, "the "))}. A personal AI agent gets better the more it knows about you. This one belongs to a place instead, and everything it knows is public and shared.</p>
 ${aboutLine(state) ? `<p class="note">${esc(aboutLine(state))}</p>` : ""}
 <div class="grid">
   <div class="card"><b class="k">It reads</b><p>Public neighborhood data only: sites neighbors already built, public feeds, this repo. Everything it knows is listed on the <a href="/sources">sources page</a>.</p></div>

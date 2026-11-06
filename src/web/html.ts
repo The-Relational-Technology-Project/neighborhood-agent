@@ -1,157 +1,190 @@
 /**
- * Server-rendered pages. The look: a typed notice on a corkboard, neighborhood-scale, no AI
- * iconography. Mobile first; most neighbors open this from a chat link.
+ * Server-rendered pages. The look comes from Knowy's logo: cream paper, warm charcoal ink, amber
+ * from the signal lines, sky from the wave, sand and plover browns; Fredoka for display, Nunito
+ * for reading. Mobile first; most neighbors open this from a chat link.
  */
 export const esc = (s: unknown): string =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export interface Shell { title: string; siteName: string; tagline?: string; placeName?: string; repoUrl: string; path: string; body: string; head?: string }
+export interface Shell { title: string; siteName: string; tagline?: string; placeName?: string; siteUrl?: string; brand?: Set<string>; repoUrl: string; path: string; body: string; head?: string }
 
 const NAV: Array<[string, string]> = [["/", "Ask"], ["/about", "About"], ["/sources", "Sources"], ["/proposals", "Proposals"], ["/correct", "Correct"], ["/contact", "Contact"]];
 
 export function layout(s: Shell): string {
+  const place = (s.placeName ?? "this neighborhood").replace(/^The /, "the ");
+  const site = (s.siteUrl ?? "https://knowy.org").replace(/\/$/, "");
+  const has = (f: string) => Boolean(s.brand?.has(f));
+  const description = `${s.siteName}${s.tagline ? `, ${s.tagline.toLowerCase()}` : ""} for ${place}. Answers with sources, points to people, and turns asks into public proposals.`;
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="theme-color" content="#f4efe4">
+<meta name="theme-color" content="#fdf8ec">
 <meta name="format-detection" content="telephone=no">
 <title>${esc(s.title)}</title>
-<meta name="description" content="${esc(s.siteName)}${s.tagline ? `, ${esc(s.tagline.toLowerCase())}` : ""} for ${esc((s.placeName ?? "this neighborhood").replace(/^The /, "the "))}. Answers with sources, points to people, and turns asks into public proposals.">
+<meta name="description" content="${esc(description)}">
 <meta property="og:title" content="${esc(s.siteName)}${s.tagline ? ` · ${esc(s.tagline)}` : ""}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23f4efe4'/><circle cx='16' cy='16' r='7' fill='%23d9622b'/></svg>">
+<meta property="og:description" content="${esc(description)}">
+${has("og.jpg") ? `<meta property="og:image" content="${esc(site)}/og.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">` : ""}
+<meta property="og:url" content="${esc(site)}${esc(s.path)}">
+<meta name="twitter:card" content="summary_large_image">
+${has("favicon.png") ? '<link rel="icon" href="/favicon.png" type="image/png">' : ""}
+${has("apple-touch-icon.png") ? '<link rel="apple-touch-icon" href="/apple-touch-icon.png">' : ""}
+<link rel="manifest" href="/manifest.webmanifest">
+${s.path === "/" && has("logo.webp") ? '<link rel="preload" href="/brand/logo.webp" as="image" type="image/webp">' : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=Special+Elite&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-:root{--paper:#f4efe4;--ink:#2a2622;--quiet:#6b645b;--rule:#d9d0bf;--orange:#d9622b;--sea:#2f6f8f;--sand:#e8dcc2;--card:#fbf8f1;--white:#fff}
+:root{
+  --paper:#fdf8ec;--card:#fffdf7;--ink:#322e2b;--quiet:#76624f;--rule:#eedfc7;
+  --amber:#e79d1b;--amber-soft:#fcebc7;--amber-ink:#8a5400;--sun:#fec627;
+  --sky:#8fb6c7;--sky-soft:#dcebf1;--sky-ink:#2f6a82;
+  --sand:#f8e6c8;--brown:#cdad8d;--grass:#bfa87b;
+  --display:"Fredoka","Nunito",ui-rounded,system-ui,sans-serif;
+  --body:"Nunito",ui-rounded,system-ui,-apple-system,sans-serif;
+}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;line-height:1.55;font-size:16px;background-image:radial-gradient(rgba(42,38,34,.045) 1px,transparent 1px);background-size:14px 14px}
-a{color:var(--sea)}
-main{max-width:720px;margin:0 auto;padding:20px 16px 72px}
-header.top{max-width:720px;margin:0 auto;padding:18px 16px 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px}
-header.top .tagline{white-space:nowrap;font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--orange)}
-header.top .name{white-space:nowrap;font-family:"Caveat",cursive;font-size:30px;font-weight:600;text-decoration:none;color:var(--ink);line-height:1}
-header.top nav{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:"Special Elite",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-header.top nav a{color:var(--quiet);text-decoration:none;padding:2px 0;border-bottom:2px solid transparent}
-header.top nav a.on{color:var(--orange);border-color:var(--orange)}
-.stamp{font-family:"Special Elite",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin:0 0 6px}
-h1{font-family:"Caveat",cursive;font-size:44px;line-height:1;margin:0 0 8px;font-weight:600}
-h2{font-family:"Caveat",cursive;font-size:30px;margin:34px 0 8px;font-weight:600}
-h3{font-size:17px;margin:22px 0 6px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.6;font-size:16.5px}
+a{color:var(--sky-ink);text-underline-offset:2px}
+img{max-width:100%;height:auto}
+main{max-width:720px;margin:0 auto;padding:20px 20px 72px;overflow-x:hidden}
+header.top{max-width:720px;margin:0 auto;padding:16px 20px 0;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+header.top .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink)}
+header.top .brand img{width:46px;height:auto}
+header.top .name{font-family:var(--display);font-weight:600;font-size:24px;line-height:1;white-space:nowrap}
+header.top nav{display:flex;flex-wrap:wrap;gap:6px;font-family:var(--display);font-weight:500;font-size:15px}
+header.top nav a{color:var(--quiet);text-decoration:none;padding:6px 12px;border-radius:999px}
+header.top nav a:hover{background:var(--amber-soft);color:var(--ink)}
+header.top nav a.on{background:var(--amber-soft);color:var(--ink)}
+.stamp{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--amber-ink);margin:0 0 6px}
+h1{font-family:var(--display);font-weight:600;font-size:38px;line-height:1.1;margin:0 0 10px}
+h2{font-family:var(--display);font-weight:600;font-size:26px;line-height:1.2;margin:36px 0 10px}
+h3{font-family:var(--display);font-weight:600;font-size:19px;margin:22px 0 6px}
 p{margin:0 0 12px}
-.sub{font-size:17px;color:var(--quiet);margin:0 0 24px;max-width:600px}
-.note{border-left:3px solid var(--orange);padding:4px 0 4px 14px;color:var(--quiet);font-style:italic;margin:14px 0}
-.card{border:1px solid var(--rule);border-radius:10px;padding:14px 16px;background:var(--card);margin:0 0 12px}
-.card b.k{display:block;font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);margin-bottom:6px}
+.sub{font-size:18px;color:var(--quiet);margin:0 0 24px;max-width:600px}
+.note{border-left:4px solid var(--amber);background:var(--card);border-radius:0 12px 12px 0;padding:12px 16px;color:var(--quiet);margin:16px 0}
+.card{border:1.5px solid var(--rule);border-radius:16px;padding:16px 18px;background:var(--card);margin:0 0 12px}
+.card b.k{display:block;font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--amber-ink);margin-bottom:6px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
-@media (max-width:560px){.grid{grid-template-columns:1fr}h1{font-size:38px}table{display:block;overflow-x:auto;max-width:100%}}
-td,li,p,small,.vitals span,.txt{overflow-wrap:anywhere}
-main{overflow-x:hidden}
-@media (max-width:560px){table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%}table.stack th{display:none}table.stack td{padding:2px 0;border:0}table.stack tr{border-bottom:1px solid var(--rule);padding:8px 0}}
-table{border-collapse:collapse;width:100%;font-size:14.5px;margin:8px 0 16px}
-th,td{text-align:left;vertical-align:top;padding:7px 8px;border-bottom:1px solid var(--rule)}
-th{font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);font-weight:normal}
+td,li,p,small,.txt{overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:8px 0 16px}
+th,td{text-align:left;vertical-align:top;padding:8px 8px;border-bottom:1.5px solid var(--rule)}
+th{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--quiet)}
 code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px}
-pre{background:var(--white);border:1px solid var(--rule);border-radius:8px;padding:12px;overflow:auto;white-space:pre-wrap}
-footer{max-width:720px;margin:0 auto;padding:18px 16px 40px;border-top:1px dashed var(--rule);font-size:13.5px;color:var(--quiet);line-height:1.5}
-footer p{margin:0 0 10px}
-footer a{color:var(--quiet)}
-footer .links{font-family:"Special Elite",monospace;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
-footer .fine{font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.04em}
-body.home main{display:flex;flex-direction:column;min-height:calc(100dvh - 70px);padding-top:12px;padding-bottom:20px}
-body.home .chat{flex:1;overflow-y:auto;min-height:240px;max-height:none;margin-bottom:10px}
-body.home footer{margin-top:24px}
-.vline{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:13px;color:var(--quiet);margin:0 0 10px}
-.vline b{color:var(--ink);font-weight:600}
-.vline a{color:var(--quiet);text-decoration:none}
-.suggest{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.suggest button{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;letter-spacing:0;text-transform:none;background:var(--card);color:var(--ink);border:1px solid var(--rule);border-radius:999px;padding:6px 12px}
-.suggest button:hover{border-color:var(--orange)}
-hr{border:0;border-top:1px dashed var(--rule);margin:30px 0}
-.vitals{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13.5px;color:var(--quiet);margin:0 0 18px;padding:10px 12px;background:var(--white);border:1px solid var(--rule);border-radius:10px}
-.vitals span b{color:var(--ink);font-weight:600}
-.vitals a{color:var(--quiet);text-decoration:none;border-bottom:1px dotted var(--rule)}
-.chat{background:var(--white);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin:0 0 12px;min-height:120px}
-.msg{display:flex;gap:10px;margin:0 0 10px;align-items:flex-start}
-.who{font-family:"Special Elite",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;min-width:64px;padding-top:5px}
-.who.n{color:var(--sea)}.who.a{color:var(--orange)}
-.txt{background:var(--paper);padding:8px 12px;border-radius:8px;font-size:15.5px;white-space:pre-wrap;word-break:break-word;flex:1}
-.msg.a .txt{background:var(--sand)}
-.txt pre{white-space:pre-wrap;margin:8px 0}
-.txt a{word-break:normal;overflow-wrap:anywhere}
-.tool{font-family:"Special Elite",monospace;font-size:11px;color:var(--quiet);margin:-4px 0 8px 74px}
-form.ask{display:flex;gap:8px;align-items:flex-end}
-form.ask textarea{flex:1;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--white);resize:vertical;min-height:46px;max-height:200px}
-button,.btn{font-family:"Special Elite",monospace;font-size:13px;letter-spacing:.06em;text-transform:uppercase;background:var(--orange);color:#fff;border:0;border-radius:8px;padding:12px 16px;cursor:pointer;text-decoration:none;display:inline-block}
-button[disabled]{opacity:.5;cursor:default}
-button.ghost{background:transparent;color:var(--quiet);border:1px solid var(--rule)}
-.draft{border:2px dashed var(--orange);border-radius:10px;padding:12px 14px;margin:8px 0 12px;background:var(--card)}
-.draft .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.standing{font-size:13.5px;color:var(--quiet);margin:10px 0 0}
-label{display:block;font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);margin:12px 0 4px}
-input[type=text],input[type=email],textarea.full{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--white)}
-.ok{color:#2f6f3a}.err{color:#a33}
+pre{background:var(--card);border:1.5px solid var(--rule);border-radius:12px;padding:12px;overflow:auto;white-space:pre-wrap}
+hr{border:0;border-top:2px dashed var(--rule);margin:30px 0}
 ul{padding-left:20px}li{margin:0 0 6px}
-.tag{font-family:"Special Elite",monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--rule);border-radius:999px;padding:1px 8px;color:var(--quiet)}
-/* ---- home: an app-shaped chat. Header, scrolling log, composer pinned at the bottom. ---- */
+.tag{font-family:var(--display);font-weight:500;font-size:12.5px;border-radius:999px;padding:2px 10px;background:var(--amber-soft);color:var(--amber-ink)}
+.ok{color:#2f6f3a}.err{color:#a3362a}
+.vitals{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;color:var(--quiet);margin:0 0 18px;padding:12px 14px;background:var(--card);border:1.5px solid var(--rule);border-radius:16px}
+.vitals span b{color:var(--ink);font-weight:700}
+.vitals a{color:var(--quiet);text-decoration:none;border-bottom:1px dotted var(--brown)}
+button,.btn{font-family:var(--display);font-weight:600;font-size:16px;background:var(--amber);color:var(--ink);border:0;border-radius:999px;padding:12px 20px;cursor:pointer;text-decoration:none;display:inline-block;transition:transform .08s ease,background .15s ease}
+button:hover{background:#efab2c}
+button:active{transform:scale(.97)}
+button[disabled]{opacity:.5;cursor:default;transform:none}
+button.ghost{background:var(--card);color:var(--quiet);border:1.5px solid var(--rule)}
+label{display:block;font-family:var(--display);font-weight:600;font-size:14px;color:var(--quiet);margin:14px 0 6px}
+input[type=text],input[type=email],textarea.full{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1.5px solid var(--rule);border-radius:14px;background:var(--card);color:var(--ink)}
+input:focus,textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-soft)}
+button,a,textarea{-webkit-tap-highlight-color:rgba(231,157,27,.18)}
+
+/* ---- the chat ---- */
+.chat{background:var(--card);border:1.5px solid var(--rule);border-radius:20px;padding:14px;margin:0 0 12px;min-height:120px}
+.hero{text-align:center;padding:4px 0 10px}
+.hero img{display:block;width:min(62vw,250px);height:auto;margin:0 auto}
+.hero .tagline{font-family:var(--display);font-weight:500;font-size:18px;color:var(--quiet);margin:2px 0 10px}
+.vline{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:13.5px;color:var(--quiet);margin:0 auto 4px;max-width:520px}
+.vline b{color:var(--ink);font-weight:700}
+.vline a{color:var(--quiet);text-decoration:none}
+.msg{display:flex;margin:0 0 12px}
+.msg .who{display:none}
+.msg.a{justify-content:flex-start}
+.msg.n{justify-content:flex-end}
+.txt{display:block;padding:10px 14px;border-radius:20px;font-size:16px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-width:90%}
+.msg.a .txt{background:var(--sand);border-bottom-left-radius:6px}
+.msg.n .txt{background:var(--sky-soft);border-bottom-right-radius:6px;max-width:82%}
+.txt b{font-weight:700}
+.txt pre{white-space:pre-wrap;margin:8px 0;background:var(--card)}
+.txt a{color:var(--sky-ink);word-break:normal;overflow-wrap:anywhere}
+.tool{font-size:13px;font-style:italic;color:var(--quiet);margin:-4px 0 10px 6px}
+.suggest{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;scrollbar-width:none}
+.suggest::-webkit-scrollbar{display:none}
+.suggest button{font-family:var(--body);font-weight:700;font-size:14.5px;background:var(--card);color:var(--ink);border:1.5px solid var(--rule);padding:8px 14px;min-height:42px;touch-action:manipulation}
+.suggest button:hover{border-color:var(--amber);background:var(--amber-soft)}
+form.ask{display:flex;gap:8px;align-items:flex-end}
+form.ask textarea{flex:1;font:inherit;font-size:16px;line-height:1.4;padding:12px 16px;border:1.5px solid var(--rule);border-radius:24px;background:var(--card);color:var(--ink);resize:none;min-height:48px;max-height:132px;overflow-y:auto}
+form.ask button{min-height:48px;min-width:72px;padding:0 20px}
+.draft{border:2px dashed var(--amber);border-radius:18px;padding:12px 14px;margin:8px 0 12px;background:var(--card)}
+.draft .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.draft .actions button{min-height:46px}
+.standing{font-size:14px;color:var(--quiet);margin:10px 0 0}
+
+/* ---- footer: room to breathe ---- */
+footer{max-width:640px;margin:0 auto;padding:44px 24px 60px;text-align:center;color:var(--quiet);border-top:2px dashed var(--rule)}
+footer .mark{width:64px;height:auto;margin:0 auto 18px;display:block}
+footer .about{font-size:16px;line-height:1.75;margin:0 auto 30px;max-width:520px}
+footer .links{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 12px;margin:0 0 28px;padding:0;list-style:none}
+footer .links a{font-family:var(--display);font-weight:500;font-size:16px;color:var(--ink);text-decoration:none;padding:10px 16px;border-radius:999px;background:var(--card);border:1.5px solid var(--rule);display:inline-block}
+footer .links a:hover{background:var(--amber-soft);border-color:var(--amber)}
+footer .fine{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;font-size:14px;line-height:1.6;margin:0}
+footer .fine a{color:var(--quiet)}
+footer .fine span{white-space:nowrap}
+
+/* ---- home: an app-shaped chat. The log scrolls; the composer stays pinned. ---- */
 body.home{overscroll-behavior-y:none}
-body.home header.top{height:52px;padding-top:12px;padding-bottom:0;align-items:center;flex-wrap:nowrap;gap:12px}
-body.home header.top .name{font-size:28px}
-body.home main{height:calc(100dvh - 52px);min-height:0;display:flex;flex-direction:column;padding:6px 16px 0;overflow:hidden}
-body.home .vline,body.home .suggest,body.home header.top{flex:0 0 auto}
-body.home .chat{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin:0 0 8px;scroll-padding-bottom:12px}
+body.home main{height:100dvh;min-height:0;display:flex;flex-direction:column;padding:10px 16px 0;overflow:hidden}
+body.home .chat{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin:0 0 8px;background:transparent;border:0;padding:6px 2px;scroll-padding-bottom:12px}
 body.home .composer{flex:0 0 auto;padding-bottom:max(12px,env(safe-area-inset-bottom))}
-body.home footer{margin-top:0}
-.vline,.suggest{scrollbar-width:none}
-.vline::-webkit-scrollbar,.suggest::-webkit-scrollbar{display:none}
-form.ask textarea{line-height:1.4;max-height:132px;overflow-y:auto;resize:none}
-form.ask button,.draft .actions button{min-height:46px;min-width:64px}
-.suggest button{min-height:40px;touch-action:manipulation}
-button,a,textarea{-webkit-tap-highlight-color:rgba(217,98,43,.15)}
-@media (max-width:360px){header.top .tagline{display:none}}
+
+@media (max-width:560px){
+  .grid{grid-template-columns:1fr}
+  h1{font-size:32px}
+  table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%}
+  table.stack th{display:none}
+  table.stack td{padding:2px 0;border:0}
+  table.stack tr{border-bottom:1.5px solid var(--rule);padding:10px 0}
+}
 @media (max-width:640px){
-  body{font-size:16px}
-  .vline{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;margin:0 -16px 8px;padding:0 16px;mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  main{padding-left:16px;padding-right:16px}
+  header.top{padding:12px 16px 0}
+  header.top nav{gap:4px;font-size:14.5px}
+  header.top nav a{padding:6px 10px}
   .suggest{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;margin:0 -16px 8px;padding:0 16px}
   .suggest button{flex:0 0 auto}
-  .chat{padding:10px}
-  .msg{display:block;margin:0 0 10px}
-  .msg .who{display:none}
-  .msg .txt{display:block;max-width:100%}
-  .msg.n{display:flex;justify-content:flex-end}
-  .msg.n .txt{max-width:85%;background:var(--sea);color:#fff}
-  .msg.n .txt a{color:#fff}
-  .tool{margin:-4px 0 8px 2px}
+  .txt{max-width:94%}
+  .msg.n .txt{max-width:85%}
+  .tool{margin-left:4px}
   .draft{padding:10px 12px}
   .draft .actions{display:grid;grid-template-columns:1.4fr 1fr}
-  .draft .actions button{font-size:12px;letter-spacing:.03em;padding:0 10px;white-space:nowrap}
-  form.ask{gap:6px}
-  form.ask textarea{padding:11px 12px;border-radius:22px;min-height:46px}
-  form.ask button{border-radius:22px;padding:0 16px}
-  footer{padding-bottom:max(40px,env(safe-area-inset-bottom))}
+  .draft .actions button{font-size:15px;padding:0 10px;white-space:nowrap}
+  footer{padding:40px 20px max(56px,env(safe-area-inset-bottom))}
 }
 </style>
 ${s.head ?? ""}
 </head>
 <body${s.path === "/" ? ' class="home"' : ""}>
-<header class="top">
-  <a class="name" href="/">${esc(s.siteName)}</a>${s.tagline ? `<span class="tagline">${esc(s.tagline)}</span>` : ""}
-  ${s.path === "/" ? "" : `<nav>${NAV.map(([href, label]) => `<a href="${href}"${href === s.path ? ' class="on"' : ""}>${label}</a>`).join("")}</nav>`}
-</header>
+${s.path === "/" ? "" : `<header class="top">
+  <a class="brand" href="/" aria-label="${esc(s.siteName)}, home">${has("mark.webp") ? '<img src="/brand/mark.webp" alt="" width="46" height="44">' : ""}<span class="name">${esc(s.siteName)}</span></a>
+  <nav>${NAV.map(([href, label]) => `<a href="${href}"${href === s.path ? ' class="on"' : ""}>${label}</a>`).join("")}</nav>
+</header>`}
 <main>
 ${s.body}
 </main>
 <footer>
-  <p>${esc(s.siteName)} works for ${esc((s.placeName ?? "this neighborhood").replace(/^The /, "the "))}, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it drafts a public pull request and the neighborhood's stewards review it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
-  <p class="links">${NAV.filter(([href]) => href !== "/").map(([href, label]) => `<a href="${href}">${label}</a>`).join(" · ")} · <a href="${esc(s.repoUrl)}">The repo</a></p>
-  <p class="fine">Data CC BY 4.0 · <a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">code, MIT</a> · <a href="https://relationaltechproject.org">Relational Tech Project</a></p>
+  ${has("mark.webp") ? '<img class="mark" src="/brand/mark.webp" alt="" width="64" height="61" loading="lazy">' : ""}
+  <p class="about">${esc(s.siteName)} works for ${esc(place)}, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it drafts a public pull request and the neighborhood's stewards review it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
+  <ul class="links">${NAV.filter(([href]) => href !== "/").map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join("")}<li><a href="${esc(s.repoUrl)}">The repo</a></li></ul>
+  <p class="fine"><span>Data CC BY 4.0</span><span><a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">Code, MIT</a></span><span><a href="https://relationaltechproject.org">Relational Tech Project</a></span></p>
 </footer>
 </body>
 </html>`;
 }
+
 
 /** Tiny markdown: paragraphs, headings, bullets, links, code, bold. Enough for repo files. */
 export function md(text: string): string {
