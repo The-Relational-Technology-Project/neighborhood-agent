@@ -17,7 +17,8 @@ export async function loadSources(repo, cacheDir, opts = {}) {
     const records = [];
     const statuses = [];
     for (const source of repo.sources) {
-        const status = { id: source.id, name: source.name, url: source.url, status: source.status, adapter: source.adapter, records: 0, vital_sign: source.vital_sign, license: source.license, note: source.note };
+        const extra = source;
+        const status = { id: source.id, name: source.name, url: source.url, status: source.status, adapter: source.adapter, records: 0, vital_sign: source.vital_sign, license: source.license, note: source.note, live_query: extra.live_query, group: extra.group, type: source.type, about: source.about };
         statuses.push(status);
         if (source.vital_sign && source.adapter !== "repo")
             continue; // vital signs are read live by src/vitals

@@ -1,5 +1,6 @@
 import type { AppState } from "../state.js";
 import type { VitalSign } from "../vitals/types.js";
+import type { SourceStatus } from "../data/loader.js";
 import { esc, layout, md } from "./html.js";
 
 function siteName(state: AppState): string {
@@ -97,12 +98,59 @@ ${md(stewards)}
   return shell(state, "/about", "About", body);
 }
 
+const GROUP_ORDER = ["The neighborhood's own notes", "Sites neighbors built", "City open data", "The ocean, air, and wildlife"];
+
+function groupOf(x: SourceStatus): string {
+  if (x.group) return x.group;
+  if (x.vital_sign) return GROUP_ORDER[3];
+  if (x.adapter === "repo" || x.adapter === "recs") return GROUP_ORDER[0];
+  if (x.adapter === "socrata" || x.live_query || /^sf-/.test(x.id)) return GROUP_ORDER[2];
+  return GROUP_ORDER[1];
+}
+
+const when = (iso?: string) => {
+  if (!iso) return "";
+  const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", ...o }).format(d);
+  const d = new Date(iso);
+  const day = fmt(d, { month: "short", day: "numeric" });
+  const time = fmt(d, { hour: "numeric", minute: "2-digit" }).replace(/\s/g, "").toLowerCase();
+  return day === fmt(new Date(), { month: "short", day: "numeric" }) ? time : `${day}, ${time}`;
+};
+
+type ListedSource = SourceStatus & { reading?: string };
+
+function groupSources(statuses: SourceStatus[], signs: VitalSign[]) {
+  const byTitle = new Map<string, ListedSource[]>();
+  for (const x of statuses.filter((s) => s.status === "live")) {
+    const reading = signs.filter((v) => v.source.name === x.name && !v.error).map((v) => `${v.label.toLowerCase()} ${v.value}`).join(" · ");
+    const g = groupOf(x);
+    byTitle.set(g, [...(byTitle.get(g) ?? []), { ...x, reading }]);
+  }
+  const titles = [...GROUP_ORDER.filter((t) => byTitle.has(t)), ...[...byTitle.keys()].filter((t) => !GROUP_ORDER.includes(t))];
+  return {
+    live: titles.map((title) => ({ title, items: byTitle.get(title)! })),
+    planned: statuses.filter((x) => x.status === "planned"),
+    excluded: statuses.filter((x) => x.status === "excluded"),
+  };
+}
+
+function srcItem(x: ListedSource): string {
+  let state: string;
+  let tone = "s-ok";
+  if (x.skipped) { state = "Not connected yet"; tone = "s-wait"; }
+  else if (x.error && !x.stale) { state = "Couldn't reach it on the last try"; tone = "s-warn"; }
+  else if (x.live_query) state = "Asked live each time";
+  else if (x.vital_sign) state = x.reading ? `Now: ${x.reading}` : "Checked through the day";
+  else state = `${x.records.toLocaleString("en-US")} ${x.records === 1 ? "record" : "records"}${x.fetched_at ? ` · refreshed ${when(x.fetched_at)}` : ""}${x.stale ? " · last good copy" : ""}`;
+  return `<li><div class="srchead"><a href="${esc(x.url)}">${esc(x.name)}</a></div>${x.about ? `<p>${esc(x.about)}</p>` : ""}${x.license ? `<p class="terms">${esc(x.license)}</p>` : ""}<div class="srcstate ${tone}"><span class="dot" aria-hidden="true"></span><span>${esc(state)}</span></div></li>`;
+}
+
 export interface SuggestOpts { mode: "email" | "public" | "none"; pending: Array<{ title: string; created_at: string }>; result?: { ok?: string; error?: string } }
 
 const STATUS_WORDS: Record<string, string> = { new: "a steward is looking at it", added: "added", declined: "not added", "in progress": "being brought in" };
 
 export function sourcesPage(state: AppState, signs: VitalSign[], opts: SuggestOpts = { mode: "none", pending: [] }): string {
-  const rows = state.statuses.map((s) => `<tr><td><a href="${esc(s.url)}">${esc(s.name)}</a>${s.note ? `<br><small>${esc(s.note)}</small>` : ""}</td><td><span class="tag">${esc(s.status)}</span>${s.vital_sign ? ' <span class="tag">vital sign</span>' : ""}</td><td>${s.fetched_at ? esc(s.fetched_at.slice(0, 16).replace("T", " ")) + (s.stale ? " (stale)" : "") : s.status === "live" && !s.vital_sign ? (s.error ? "not yet" : "") : ""}</td><td>${s.vital_sign && s.status === "live" ? "live" : s.records || ""}</td><td><small>${esc(s.license ?? "")}${s.skipped ? "<br><i>Not connected yet.</i>" : s.error ? `<br><span class="err">${s.stale ? "Couldn't reach it on the last try; showing what Knowy saw before." : "Couldn't reach it on the last try."}</span>` : ""}</small></td></tr>`).join("");
+  const groups = groupSources(state.statuses, signs);
   const decided = state.repo.suggestions.slice().sort((a, b) => String(b.data.suggested ?? "").localeCompare(String(a.data.suggested ?? ""))).slice(0, 12);
   const canSend = opts.mode !== "none";
   const form = canSend ? `<form method="post" action="/suggest" enctype="multipart/form-data" class="card">
@@ -128,12 +176,11 @@ ${opts.result?.ok ? `<p class="ok"><b>${esc(opts.result.ok)}</b></p>` : ""}${opt
 ${form}
 ${opts.pending.length || decided.length ? `<h2>Suggested by neighbors</h2><ul>${opts.pending.map((p) => `<li>${esc(p.title.replace(/^Source:\s*/, ""))} <small>sent ${esc(p.created_at.slice(0, 10))} · on its way to a steward</small></li>`).join("")}${decided.map((d) => `<li>${esc(String(d.data.title ?? d.file))} <small>${esc(String(d.data.suggested ?? ""))} · ${esc(STATUS_WORDS[String(d.data.status ?? "new")] ?? String(d.data.status))}${d.data.decision ? `: ${esc(String(d.data.decision))}` : ""}</small></li>`).join("")}</ul>` : ""}
 <h2>Everything it reads now</h2>
-<table class="stack"><tr><th>Source</th><th>Status</th><th>Last fetched</th><th>Records</th><th>Permission note</th></tr>${rows}</table>
-<h2>Vital signs right now</h2>
-${vitalsHtml(signs)}
-<ul>${signs.map((s) => `<li><b>${esc(s.label)}</b>: ${esc(s.value)}${s.detail ? `<br><small>${esc(s.detail).replace(/\n/g, "<br>")}</small>` : ""}<br><small>${esc(s.source.name)}, fetched ${esc(s.fetched_at.slice(0, 16).replace("T", " "))}${s.error ? ` · <span class="err">${esc(s.error)}</span>` : ""}</small></li>`).join("")}</ul>
+${groups.live.map((g) => `<div class="srcgroup"><h3>${esc(g.title)}</h3><ul class="srclist">${g.items.map(srcItem).join("")}</ul></div>`).join("")}
+${groups.planned.length ? `<div class="srcgroup quietgroup"><h3>Coming next</h3><ul class="srclist compact">${groups.planned.map((x) => `<li><div class="srchead">${x.url ? `<a href="${esc(x.url)}">${esc(x.name)}</a>` : esc(x.name)}</div>${x.about ? `<p>${esc(x.about)}</p>` : ""}${x.note ? `<p class="terms notyet">${esc(x.note)}</p>` : ""}</li>`).join("")}</ul></div>` : ""}
+${groups.excluded.length ? `<div class="srcgroup quietgroup"><h3>Left out on purpose</h3><ul class="srclist compact">${groups.excluded.map((x) => `<li><div class="srchead">${x.url ? `<a href="${esc(x.url)}">${esc(x.name)}</a>` : esc(x.name)}</div>${x.license ? `<p>${esc(x.license)}</p>` : ""}</li>`).join("")}</ul></div>` : ""}
 <h2>Who it speaks for, and who speaks for them</h2>
-<table class="stack"><tr><th>Constituent</th><th>Feeds</th><th>Human advocates</th></tr>${state.repo.constituents.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.feeds.join(", "))}</td><td>${c.advocates.map((a) => { const m = a.match(/^(.*?),\s*(https?:\/\/\S+)$/); return m ? `<a href="${esc(m[2])}">${esc(m[1])}</a>` : esc(a); }).join("<br>")}</td></tr>`).join("")}</table>
+<ul class="srclist">${state.repo.constituents.map((c) => `<li><div class="srchead">${esc(c.name)}</div><p>Advocates: ${c.advocates.map((a) => { const m = a.match(/^(.*?),\s*(https?:\/\/\S+)$/); return m ? `<a href="${esc(m[2])}">${esc(m[1])}</a>` : esc(a); }).join(" · ") || "none listed yet"}</p></li>`).join("")}</ul>
 <p class="note">How Knowy treats every source: it follows each site's rules for automated visitors, checks in on a schedule rather than every time someone asks, keeps a copy of what it saw so stewards can check its work, and lets neighbors' corrections win over what a source says.</p>`;
   return shell(state, "/sources", "Sources", body);
 }

@@ -72,6 +72,8 @@ export interface SourceDef {
   license?: string;
   status: "live" | "planned" | "excluded";
   note?: string;
+  /** One plain line for neighbors on the sources page. */
+  about?: string;
   vital_sign?: boolean;
   config?: Record<string, unknown> & { tables?: SourceTable[] };
 }

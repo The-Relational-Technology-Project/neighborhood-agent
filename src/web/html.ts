@@ -78,7 +78,24 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5p
 pre{background:var(--card);border:1.5px solid var(--rule);border-radius:12px;padding:12px;overflow:auto;white-space:pre-wrap}
 hr{border:0;border-top:2px dashed var(--rule);margin:30px 0}
 ul{padding-left:20px}li{margin:0 0 6px}
-.tag{font-family:var(--display);font-weight:500;font-size:12.5px;border-radius:999px;padding:2px 10px;background:var(--amber-soft);color:var(--amber-ink)}
+.tag{font-family:var(--display);font-weight:500;font-size:12.5px;border-radius:999px;padding:2px 10px;background:var(--amber-soft);color:var(--amber-ink);white-space:nowrap}
+.srcgroup{margin:28px 0 0}
+.srcgroup h3{font-size:18px;margin:0 0 12px}
+.srclist{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.srclist li{margin:0;background:var(--card);border:1.5px solid var(--rule);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.srclist li p{margin:0;font-size:14.5px;line-height:1.5;color:var(--quiet)}
+.srchead{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.3}
+.srchead a{color:var(--ink);text-decoration-color:var(--brown)}
+.srcstate{margin-top:auto;padding-top:6px;font-size:13.5px;font-weight:700;color:var(--ink);display:flex;gap:8px;align-items:baseline}
+.srcstate .dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:#4f9a5c;transform:translateY(-1px)}
+.srcstate.s-wait{color:var(--quiet)}
+.srcstate.s-wait .dot{background:var(--brown)}
+.srcstate.s-warn .dot{background:#c0563f}
+.srclist li p.terms{font-size:13px;line-height:1.45;opacity:.85}
+.srclist li p.terms::before{content:"Terms · ";font-weight:700}
+.srclist li p.terms.notyet::before{content:"Not yet · "}
+.quietgroup .srclist li{background:transparent;border-style:dashed}
+.srclist.compact li{padding:12px 14px}
 .ok{color:#2f6f3a}.err{color:#a3362a}
 .vitals{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;color:var(--quiet);margin:0 0 18px;padding:12px 14px;background:var(--card);border:1.5px solid var(--rule);border-radius:16px}
 .vitals span b{color:var(--ink);font-weight:700}

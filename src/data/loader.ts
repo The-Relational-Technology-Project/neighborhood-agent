@@ -24,6 +24,12 @@ export interface SourceStatus {
   note?: string;
   /** Why an optional source wasn't read (e.g. its key isn't set). */
   skipped?: string;
+  /** Asked live on each question rather than indexed (e.g. 311). */
+  live_query?: string;
+  about?: string;
+  /** Steward-chosen heading on the sources page. */
+  group?: string;
+  type?: string;
 }
 
 export interface LoadResult {
@@ -43,7 +49,8 @@ export async function loadSources(repo: DataRepo, cacheDir: string, opts: { forc
   const statuses: SourceStatus[] = [];
 
   for (const source of repo.sources) {
-    const status: SourceStatus = { id: source.id, name: source.name, url: source.url, status: source.status, adapter: source.adapter, records: 0, vital_sign: source.vital_sign, license: source.license, note: source.note };
+    const extra = source as unknown as { live_query?: string; group?: string };
+    const status: SourceStatus = { id: source.id, name: source.name, url: source.url, status: source.status, adapter: source.adapter, records: 0, vital_sign: source.vital_sign, license: source.license, note: source.note, live_query: extra.live_query, group: extra.group, type: source.type, about: source.about };
     statuses.push(status);
     if (source.vital_sign && source.adapter !== "repo") continue; // vital signs are read live by src/vitals
     if (source.status !== "live" || !source.adapter) continue;
