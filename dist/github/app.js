@@ -85,8 +85,15 @@ export class GitHub {
         let result;
         try {
             await this.installationToken();
-            const r = await this.api(`/repos/${this.repo}`);
-            result = r.permissions?.push === false ? { ok: false, detail: `the App can read ${r.full_name} but not write to it; give it Contents and Pull requests read and write` } : { ok: true, detail: `connected to ${r.full_name}` };
+            const jwt = signAppJwt(this.cfg.github.appId, this.cfg.github.privateKey);
+            const res = await fetch(`${API}/repos/${this.repo}/installation`, { headers: { Authorization: `Bearer ${jwt}`, Accept: "application/vnd.github+json", "User-Agent": "neighborhood-agent" }, signal: AbortSignal.timeout(20_000) });
+            if (!res.ok)
+                throw new Error(`GitHub App is not installed on ${this.repo} (${res.status})`);
+            const perms = (await res.json()).permissions ?? {};
+            const missing = ["contents", "pull_requests"].filter((k) => perms[k] !== "write");
+            result = missing.length
+                ? { ok: false, detail: `the App is installed on ${this.repo} but needs read and write on ${missing.map((k) => k.replace("_", " ")).join(" and ")}; change it on the App's Permissions page, then accept the new permissions on the installation` }
+                : { ok: true, detail: `connected to ${this.repo} (contents and pull requests: write${perms.issues === "write" ? ", issues: write" : ""})` };
         }
         catch (err) {
             const m = err.message;
