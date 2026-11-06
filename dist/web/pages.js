@@ -88,12 +88,34 @@ ${md(stewards)}
 <ul>${state.repo.constituents.map((c) => `<li><b>${esc(c.name)}</b>${c.advocates.length ? ` · advocates: ${c.advocates.map((a) => { const m = a.match(/^(.*?),\s*(https?:\/\/\S+)$/); return m ? `<a href="${esc(m[2])}">${esc(m[1])}</a>` : esc(a); }).join("; ")}` : ""}</li>`).join("")}</ul>`;
     return shell(state, "/about", "About", body);
 }
-export function sourcesPage(state, signs) {
+const STATUS_WORDS = { new: "a steward is looking at it", added: "added", declined: "not added", "in progress": "being brought in" };
+export function sourcesPage(state, signs, opts = { mode: "none", pending: [] }) {
     const rows = state.statuses.map((s) => `<tr><td><a href="${esc(s.url)}">${esc(s.name)}</a>${s.note ? `<br><small>${esc(s.note)}</small>` : ""}</td><td><span class="tag">${esc(s.status)}</span>${s.vital_sign ? ' <span class="tag">vital sign</span>' : ""}</td><td>${s.fetched_at ? esc(s.fetched_at.slice(0, 16).replace("T", " ")) + (s.stale ? " (stale)" : "") : s.status === "live" && !s.vital_sign ? (s.error ? "not yet" : "") : ""}</td><td>${s.vital_sign && s.status === "live" ? "live" : s.records || ""}</td><td><small>${esc(s.license ?? "")}${s.skipped ? "<br><i>Not connected yet.</i>" : s.error ? `<br><span class="err">${s.stale ? "Couldn't reach it on the last try; showing what Knowy saw before." : "Couldn't reach it on the last try."}</span>` : ""}</small></td></tr>`).join("");
+    const decided = state.repo.suggestions.slice().sort((a, b) => String(b.data.suggested ?? "").localeCompare(String(a.data.suggested ?? ""))).slice(0, 12);
+    const canSend = opts.mode !== "none";
+    const form = canSend ? `<form method="post" action="/suggest" enctype="multipart/form-data" class="card">
+  <label for="url">Link</label><input type="text" id="url" name="url" inputmode="url" placeholder="https://" maxlength="500">
+  ${opts.mode === "email" ? `<label for="file">Or a file <small>(PDF, doc, spreadsheet, or text, up to 4 MB; only the stewards see it)</small></label><input type="file" id="file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.tsv,.md,.txt,.rtf,.odt,.ods,.ics">` : ""}
+  <label for="what">What is it, and what could Knowy learn from it?</label><textarea class="full" id="what" name="what" rows="3" required maxlength="2000" placeholder="The parents' group's list of daycares, kept up to date by…"></textarea>
+  <label for="kept_by">Who keeps it? <small>(optional)</small></label><input type="text" id="kept_by" name="kept_by" maxlength="200">
+  <label for="ok_to_share">Is it OK for it to be public?</label>
+  <select id="ok_to_share" name="ok_to_share" class="full"><option>Yes, it's already public</option><option>Yes, the people who made it said so</option><option selected>Not sure, please check</option></select>
+  <label for="updates">How often does it change? <small>(optional)</small></label>
+  <select id="updates" name="updates" class="full"><option value="">Not sure</option><option>It's a one-time list</option><option>Now and then</option><option>Every week</option><option>Every day</option></select>
+  <label for="reach">How to reach you <small>(optional, only the stewards see it)</small></label><input type="text" id="reach" name="reach" maxlength="140">
+  <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off" aria-hidden="true">
+  <p style="margin:16px 0 0"><button type="submit">Send to the stewards</button></p>
+</form>` : `<p>Tell Knowy in the chat, or <a href="/contact">write to the stewards</a>.</p>`;
     const body = `
 <p class="stamp">Sources</p>
 <h1>What it reads</h1>
 <p class="sub">Every source Knowy reads. If it isn't here, Knowy doesn't know it. Last refreshed ${esc(state.lastBuild?.slice(0, 16).replace("T", " ") ?? "never")} UTC; ${state.index.size} records.</p>
+<h2 id="suggest">Suggest something Knowy should read</h2>
+<p>A doc, a spreadsheet, a site, a calendar, a group's list. A steward looks at each one and decides how Knowy should use it. Nothing is added until then. You can also just tell Knowy in the chat.</p>
+${opts.result?.ok ? `<p class="ok"><b>${esc(opts.result.ok)}</b></p>` : ""}${opts.result?.error ? `<p class="err">${esc(opts.result.error)}</p>` : ""}
+${form}
+${opts.pending.length || decided.length ? `<h2>Suggested by neighbors</h2><ul>${opts.pending.map((p) => `<li>${esc(p.title.replace(/^Source:\s*/, ""))} <small>sent ${esc(p.created_at.slice(0, 10))} · on its way to a steward</small></li>`).join("")}${decided.map((d) => `<li>${esc(String(d.data.title ?? d.file))} <small>${esc(String(d.data.suggested ?? ""))} · ${esc(STATUS_WORDS[String(d.data.status ?? "new")] ?? String(d.data.status))}${d.data.decision ? `: ${esc(String(d.data.decision))}` : ""}</small></li>`).join("")}</ul>` : ""}
+<h2>Everything it reads now</h2>
 <table class="stack"><tr><th>Source</th><th>Status</th><th>Last fetched</th><th>Records</th><th>Permission note</th></tr>${rows}</table>
 <h2>Vital signs right now</h2>
 ${vitalsHtml(signs)}
@@ -168,6 +190,8 @@ ${state.statuses.some((x) => x.error || x.skipped) ? `<h2>Sources needing attent
 ${!st.github || !st.email ? `<p class="note">${!st.email ? "Turn on email: set RESEND_API_KEY and EMAIL_FROM (an address on a domain verified in Resend) in Vercel. Recipients come from STEWARDS.md, or STEWARD_EMAILS. " : ""}${!st.github ? "Connect GitHub: create a GitHub App with Contents, Pull requests, and Issues read/write, install it on the data repo, and set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY." : ""}</p>` : ""}
 <h2>What people asked this week</h2>
 ${rows.length ? `<table class="stack"><tr><th>Topic</th><th>Asked</th><th>Pointed to a person or group</th><th>Didn't know</th></tr>${rows.map(([t, r]) => `<tr><td>${esc(t)}</td><td>${r.asked}</td><td>${r.referral}</td><td>${r.dont_know}</td></tr>`).join("")}</table><p><small>${esc(st.week)}, counted by this server since it last started. Weekly totals go to log/questions.md.</small></p>` : "<p>No questions counted yet this week on this server.</p>"}
+<h2>Bringing in a suggested source</h2>
+<p>Each suggestion arrives with a note on its kind and the right way in: a doc becomes a recs/ file or an archive note, a live spreadsheet a csv source, a calendar an ics source, a blog an rss source, a site a resources.yml entry. When it's in, or decided against, set <code>status: added</code> or <code>declined</code> (with <code>decision:</code> a line on why) in its suggestions/ file; neighbors see that on the sources page. Uploaded files only ever arrive by email.</p>
 <h2>How stewarding works</h2>
 <p><a href="${esc(repo)}/blob/main/STEWARDS.md">STEWARDS.md</a> has the review checklist and how decisions get made. Everything Knowy knows is plain files in <a href="${esc(repo)}">the data repo</a>; edit them on GitHub and Knowy picks up the change within a few minutes.</p>`;
     return shell(state, "/stewards", "Stewards", body, '<meta name="robots" content="noindex">');

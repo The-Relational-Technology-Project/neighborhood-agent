@@ -1,13 +1,15 @@
 /**
- * Drafts for the three write actions. The model asks for a draft; the app holds it in memory;
- * only a neighbor's tap on "Yes, open the PR" turns it into a pull request.
+ * Drafts for what neighbors send in: an event, a correction, a proposal, or a source to read.
+ * The app holds a draft until the neighbor taps "Yes, send it"; then it goes to the stewards
+ * (a pull request and an email, behind the scenes).
  */
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { toFrontmatter } from "../data/frontmatter.js";
 import { localDate } from "../data/index.js";
 import { slug } from "../adapters/types.js";
+import { classifySuggestion } from "./suggest.js";
 
-export type DraftKind = "event" | "correction" | "proposal";
+export type DraftKind = "event" | "correction" | "proposal" | "source";
 
 export interface DraftInput {
   kind: DraftKind;
@@ -28,6 +30,8 @@ export interface Draft {
   ask: string;
   /** What the neighbor sees on the card: plain labels and values, no files. */
   summary: Array<[string, string]>;
+  /** For stewards only: how to bring a suggested source in. */
+  hint?: string;
 }
 
 export const drafts = new Map<string, Draft>();
@@ -49,6 +53,7 @@ export function makeDraft(input: DraftInput, today = localDate()): Draft {
   let title: string;
   let why: string;
   let summary: Array<[string, string]>;
+  let hint: string | undefined;
   switch (input.kind) {
     case "event": {
       const date = clean(f.date) || today;
@@ -93,6 +98,33 @@ export function makeDraft(input: DraftInput, today = localDate()): Draft {
       why = "A neighbor said the agent had this wrong. Corrections in the repo override fetched data.";
       break;
     }
+    case "source": {
+      const url = clean(f.url);
+      const file = clean(f.file);
+      const name = clean(f.title) || url.replace(/^https?:\/\/(www\.)?/, "").split(/[/?#]/)[0] || file || "A suggested source";
+      const kind = classifySuggestion(url, file || undefined);
+      hint = kind.hint;
+      path = `suggestions/${today}-${slug(name) || "source"}.md`;
+      content = toFrontmatter(
+        {
+          title: name,
+          type: kind.type,
+          ...(url ? { url } : {}),
+          ...(file ? { file: `${file} (sent to the stewards by email, not stored here)` } : {}),
+          kept_by: clean(f.kept_by) || "not given",
+          ok_to_share: clean(f.ok_to_share) || "not sure",
+          ...(clean(f.updates) ? { updates: clean(f.updates) } : {}),
+          suggested_by: clean(f.suggested_by) || "a neighbor",
+          suggested: today,
+          status: "new",
+        },
+        [`## What it is\n\n${clean(f.what) || "(not given)"}`, `## For stewards\n\n${kind.label}. ${kind.hint}\n\nWhen it's in (or decided against), set status to added or declined with a line on why.`].join("\n\n"),
+      );
+      title = `Source: ${name}`;
+      summary = [["Source", name], [url ? "Link" : "File", url || file], ["What's in it", clean(f.what)], ["Kept by", clean(f.kept_by)], ["OK to be public?", clean(f.ok_to_share) || "not sure"], ["Changes", clean(f.updates)], ["From", clean(f.suggested_by) || "a neighbor"]];
+      why = `A neighbor suggested something Knowy could read. ${kind.label}: ${kind.hint}`;
+      break;
+    }
     case "proposal": {
       const name = clean(f.title) || "A proposal";
       path = `proposals/${today}-${slug(name) || "proposal"}.md`;
@@ -121,6 +153,7 @@ export function makeDraft(input: DraftInput, today = localDate()): Draft {
     created_at: new Date().toISOString(),
     ask,
     summary: summary.filter(([, v]) => v),
+    ...(hint ? { hint } : {}),
     body: [
       `**What the neighbor asked for, in their words**\n\n> ${ask.replace(/\n/g, "\n> ")}`,
       `**What the agent changed**\n\nAdds \`${path}\`.`,
@@ -154,7 +187,7 @@ export function verifyDraft(token: string | undefined): Draft | undefined {
   if (a.length !== b.length || !timingSafeEqual(a, b)) return undefined;
   try {
     const d = JSON.parse(Buffer.from(payload, "base64url").toString()) as Draft;
-    if (!d.path || !d.content || !["event", "correction", "proposal"].includes(d.kind)) return undefined;
+    if (!d.path || !d.content || !["event", "correction", "proposal", "source"].includes(d.kind)) return undefined;
     if (Date.parse(d.created_at) < Date.now() - DRAFT_TTL_MS) return undefined;
     return d;
   } catch {

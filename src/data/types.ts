@@ -154,6 +154,8 @@ export interface DataRepo {
   proposals: FrontmatterDoc[];
   corrections: Correction[];
   archive: FrontmatterDoc[];
+  /** Sources neighbors suggested, with the stewards' decisions. Shown, never used for answers. */
+  suggestions: FrontmatterDoc[];
   /** Neighbors' recommendations, one file per source under recs/. */
   recs: RecsFile[];
   questionLogMd: string;

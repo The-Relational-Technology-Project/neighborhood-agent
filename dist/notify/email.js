@@ -13,7 +13,7 @@ export async function emailStewards(cfg, repo, msg) {
     const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${cfg.email.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: cfg.email.from, to, subject: msg.subject, text: msg.text, ...(msg.replyTo ? { reply_to: msg.replyTo } : {}) }),
+        body: JSON.stringify({ from: cfg.email.from, to, subject: msg.subject, text: msg.text, ...(msg.replyTo ? { reply_to: msg.replyTo } : {}), ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}) }),
         signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok)

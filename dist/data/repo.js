@@ -228,6 +228,7 @@ export async function loadRepo(root) {
         proposals: await readDocs(path.join(root, "proposals")),
         corrections,
         archive: await readDocs(path.join(root, "archive")),
+        suggestions: await readDocs(path.join(root, "suggestions")),
         recs,
         questionLogMd: await readText(path.join(root, "log", "questions.md")),
         settings: parseSettings(placeMd),

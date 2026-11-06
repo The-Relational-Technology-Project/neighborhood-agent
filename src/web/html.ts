@@ -89,6 +89,9 @@ button:active{transform:scale(.97)}
 button[disabled]{opacity:.5;cursor:default;transform:none}
 button.ghost{background:var(--card);color:var(--quiet);border:1.5px solid var(--rule)}
 label{display:block;font-family:var(--display);font-weight:600;font-size:14px;color:var(--quiet);margin:14px 0 6px}
+select.full{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1.5px solid var(--rule);border-radius:14px;background:var(--card);color:var(--ink)}
+input[type=file]{font:inherit;font-size:15px;max-width:100%}
+form.card label:first-child{margin-top:0}
 input[type=text],input[type=email],textarea.full{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1.5px solid var(--rule);border-radius:14px;background:var(--card);color:var(--ink)}
 input:focus,textarea:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-soft)}
 button,a,textarea{-webkit-tap-highlight-color:rgba(231,157,27,.18)}

@@ -15,13 +15,15 @@ export function emailConfigured(cfg: Config, repo: DataRepo): boolean {
   return Boolean(cfg.email.apiKey && stewardAddresses(cfg, repo).length);
 }
 
-export async function emailStewards(cfg: Config, repo: DataRepo, msg: { subject: string; text: string; replyTo?: string }): Promise<void> {
+export interface Attachment { filename: string; content: Buffer }
+
+export async function emailStewards(cfg: Config, repo: DataRepo, msg: { subject: string; text: string; replyTo?: string; attachments?: Attachment[] }): Promise<void> {
   const to = stewardAddresses(cfg, repo);
   if (!cfg.email.apiKey || !to.length) throw new Error("email is not configured");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${cfg.email.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: cfg.email.from, to, subject: msg.subject, text: msg.text, ...(msg.replyTo ? { reply_to: msg.replyTo } : {}) }),
+    body: JSON.stringify({ from: cfg.email.from, to, subject: msg.subject, text: msg.text, ...(msg.replyTo ? { reply_to: msg.replyTo } : {}), ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}) }),
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`email ${res.status}: ${(await res.text()).slice(0, 200)}`);

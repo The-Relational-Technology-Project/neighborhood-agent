@@ -54,15 +54,15 @@ export const toolDefinitions = [
     },
     {
         name: "draft_pr",
-        description: "Prepare something a neighbor wants added: an event, a correction, or a proposal. The page shows them a summary card with a 'Yes, send it' button; nothing is sent until they tap it, and a steward looks it over before it's added. For 'proposal', the result also says how many times the topic has come up before. Call this only after you have collected the fields in conversation.",
+        description: "Prepare something a neighbor wants added: an event, a correction, a proposal, or a source for Knowy to read (a doc, spreadsheet, site, calendar, or feed). The page shows them a summary card with a 'Yes, send it' button; nothing is sent until they tap it, and a steward looks it over before it's added. For 'proposal', the result also says how many times the topic has come up before. Call this only after you have collected the fields in conversation.",
         input_schema: {
             type: "object",
             properties: {
-                kind: { type: "string", enum: ["event", "correction", "proposal"] },
+                kind: { type: "string", enum: ["event", "correction", "proposal", "source"] },
                 ask: { type: "string", description: "What the neighbor asked for, in their own words, quoted from the conversation." },
                 fields: {
                     type: "object",
-                    description: "String fields, by kind. event: title, date (YYYY-MM-DD), start (HH:MM), end, place, host, contact (a public way to reach the host, only if they give one; leave it out otherwise), description. correction: target (the record id you showed, or a short description), field (hours|address|closed|name|other), was, now, how_known, by, note. proposal: title, proposer, what, why, already_exists.",
+                    description: "String fields, by kind. event: title, date (YYYY-MM-DD), start (HH:MM), end, place, host, contact (a public way to reach the host, only if they give one; leave it out otherwise), description. correction: target (the record id you showed, or a short description), field (hours|address|closed|name|other), was, now, how_known, by, note. proposal: title, proposer, what, why, already_exists. source (a doc, spreadsheet, site, calendar, or feed Knowy could read): title, url, what (what's in it), kept_by (who keeps it, if known), ok_to_share (is it already public, or did whoever keeps it say yes), updates (how often it changes), suggested_by.",
                     additionalProperties: { type: "string" },
                 },
             },
@@ -115,7 +115,7 @@ export async function runTool(name, input, ctx) {
         }
         case "draft_pr": {
             const kind = String(args.kind);
-            if (!["event", "correction", "proposal"].includes(kind))
+            if (!["event", "correction", "proposal", "source"].includes(kind))
                 return "Unknown kind.";
             const fields = (args.fields ?? {});
             const draft = makeDraft({ kind, ask: String(args.ask ?? ""), fields });
