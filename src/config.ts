@@ -43,6 +43,19 @@ export interface Config {
   anthropicConfigured: boolean;
 }
 
+/**
+ * A PEM key as pasted into a hosting dashboard: line breaks may arrive as spaces or literal "\n",
+ * the value may be wrapped in quotes. Rebuild it: header line, base64 body in 64-char lines, footer.
+ */
+export function normalizePem(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const v = raw.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").replace(/\r/g, "");
+  const m = v.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
+  if (!m) return v;
+  const body = m[2].replace(/\s+/g, "");
+  return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)?.join("\n") ?? ""}\n-----END ${m[1]}-----\n`;
+}
+
 export function loadConfig(): Config {
   const dataRepo = env("DATA_REPO", path.resolve(process.cwd(), "../outer-sunset"))!;
   let dataRepoGithub = env("DATA_REPO_GITHUB");
@@ -50,7 +63,7 @@ export function loadConfig(): Config {
     const m = dataRepo.match(/github\.com[/:]([^/]+)\/([^/.]+)(?:\.git)?\/?$/);
     if (m) dataRepoGithub = `${m[1]}/${m[2]}`;
   }
-  const privateKey = env("GITHUB_APP_PRIVATE_KEY")?.replace(/\\n/g, "\n");
+  const privateKey = normalizePem(env("GITHUB_APP_PRIVATE_KEY"));
   return {
     dataRepo,
     dataRepoGithub,

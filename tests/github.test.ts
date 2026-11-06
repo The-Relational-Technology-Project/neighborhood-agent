@@ -24,3 +24,17 @@ describe("github app auth", () => {
     expect(verifyWebhook("s3cret", body, undefined)).toBe(false);
   });
 });
+
+describe("private key pasted into a dashboard", () => {
+  it("rebuilds a key whose line breaks became spaces or literal \\n", async () => {
+    const { normalizePem } = await import("../src/config.js");
+    const { generateKeyPairSync, createSign } = await import("node:crypto");
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pem = privateKey.export({ type: "pkcs1", format: "pem" }) as string;
+    for (const mangled of [pem.replace(/\n/g, " "), pem.replace(/\n/g, "\\n"), `"${pem}"`, pem.replace(/\n/g, "\r\n")]) {
+      const fixed = normalizePem(mangled)!;
+      const s = createSign("RSA-SHA256"); s.update("x");
+      expect(() => s.sign(fixed)).not.toThrow();
+    }
+  });
+});

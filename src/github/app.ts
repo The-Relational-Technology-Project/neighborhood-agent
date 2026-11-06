@@ -90,7 +90,9 @@ export class GitHub {
       result = r.permissions?.push === false ? { ok: false, detail: `the App can read ${r.full_name} but not write to it; give it Contents and Pull requests read and write` } : { ok: true, detail: `connected to ${r.full_name}` };
     } catch (err) {
       const m = (err as Error).message;
-      result = { ok: false, detail: /PEM|key|asn1|DECODER|unsupported/i.test(m) ? "the private key didn't load; paste the whole .pem file, BEGIN to END lines included" : /not installed/i.test(m) ? `the App isn't installed on ${this.repo}; install it from the App's page` : m.slice(0, 200) };
+      const pk = this.cfg.github.privateKey ?? "";
+      const shape = `key has ${pk.includes("-----BEGIN") ? "a BEGIN line" : "no BEGIN line"}, ${pk.includes("-----END") ? "an END line" : "no END line"}, ${pk.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "").length} key characters`;
+      result = { ok: false, detail: /PEM|key|asn1|DECODER|unsupported/i.test(m) ? `the private key didn't load (${m.split("\n")[0].slice(0, 80)}; ${shape}). Paste the whole .pem file again, BEGIN to END lines included` : /not installed/i.test(m) ? `the App isn't installed on ${this.repo}; install it from the App's page` : m.slice(0, 200) };
     }
     this.checked = { at: Date.now(), ...result };
     return result;
