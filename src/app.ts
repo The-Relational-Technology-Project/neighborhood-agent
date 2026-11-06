@@ -55,8 +55,9 @@ app.get("/stewards", async (c) => {
   let queue: QueueItem[] = []; let queueError: string | undefined;
   try { queue = (await cachedPrs("")).filter((p) => p.labels.some((l) => ["event", "correction", "proposal", "source", "log", "contact"].includes(l)) || /^(Event|Correction|Proposal|Source|Question log):/.test(p.title)); } catch (err) { queueError = (err as Error).message; }
   const week = isoWeek();
+  const gh = await state.github.check();
   return c.html(stewardsPage(state, queue, queueError, {
-    github: state.github.configured, email: emailConfigured(state.cfg, state.repo), emailTo: stewardAddresses(state.cfg, state.repo),
+    github: gh.ok, githubDetail: gh.detail, email: emailConfigured(state.cfg, state.repo), emailTo: stewardAddresses(state.cfg, state.repo),
     model: state.agent ? state.cfg.model : undefined, spent: state.budget.spent, limit: state.budget.limit,
     sha: state.repo.sha, built: state.lastBuild, loadErrors: state.loadErrors, log: state.log.all()[week] ?? {}, week,
   }));

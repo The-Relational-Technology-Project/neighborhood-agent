@@ -184,7 +184,7 @@ ${mode === "none" ? `<p>${stewardEmails.length ? `Email ${stewardEmails.map((e) 
 }
 
 export interface QueueItem { number: number; title: string; url: string; labels: string[]; created_at: string; body: string }
-export interface StewardStatus { github: boolean; email: boolean; emailTo: string[]; model?: string; spent: number; limit: number; sha?: string; built?: string; loadErrors: string[]; log: Record<string, { asked: number; referral: number; dont_know: number }>; week: string }
+export interface StewardStatus { github: boolean; githubDetail?: string; email: boolean; emailTo: string[]; model?: string; spent: number; limit: number; sha?: string; built?: string; loadErrors: string[]; log: Record<string, { asked: number; referral: number; dont_know: number }>; week: string }
 
 /** The stewards' desk: what's waiting, whether the plumbing works, what people asked this week. */
 export function stewardsPage(state: AppState, queue: QueueItem[], queueError: string | undefined, st: StewardStatus): string {
@@ -202,7 +202,7 @@ ${queueError ? `<p class="err">Couldn't read the queue: ${esc(queueError)}. <a h
 ${state.statuses.some((x) => x.error || x.skipped) ? `<h2>Sources needing attention</h2><ul>${state.statuses.filter((x) => x.error || x.skipped).map((x) => `<li><b>${esc(x.name)}</b> (${esc(x.id)}): ${esc(x.skipped ? `skipped, ${x.skipped}` : `${x.error}${x.stale ? " (serving the last good copy)" : ""}`)}</li>`).join("")}</ul>` : ""}
 <h2>Plumbing</h2>
 <table class="stack">
-<tr><td>GitHub App (turns submissions into pull requests)</td><td>${ok(st.github)}</td></tr>
+<tr><td>GitHub App (turns submissions into pull requests)${st.githubDetail ? `<br><small>${esc(st.githubDetail)}</small>` : ""}</td><td>${ok(st.github)}</td></tr>
 <tr><td>Email to stewards${st.emailTo.length ? ` (${esc(st.emailTo.join(", "))})` : ""}</td><td>${ok(st.email)}</td></tr>
 <tr><td>Model</td><td>${esc(st.model ?? "not configured")}</td></tr>
 <tr><td>Today's budget</td><td>$${st.spent.toFixed(2)} of $${st.limit.toFixed(2)}</td></tr>

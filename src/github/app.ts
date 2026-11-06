@@ -63,16 +63,37 @@ export class GitHub {
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/vnd.github+json");
     headers.set("User-Agent", "neighborhood-agent");
-    if (init.auth !== false && this.configured) headers.set("Authorization", `Bearer ${await this.installationToken()}`);
-    else if (process.env.GITHUB_TOKEN) headers.set("Authorization", `Bearer ${process.env.GITHUB_TOKEN}`); // public reads, higher rate limit
+    // The App's token whenever the App is connected (reads too: anonymous reads share a small rate
+    // limit per server IP); otherwise a read-only GITHUB_TOKEN if one is set.
+    if (this.configured) headers.set("Authorization", `Bearer ${await this.installationToken()}`);
+    else if (process.env.GITHUB_TOKEN) headers.set("Authorization", `Bearer ${process.env.GITHUB_TOKEN}`);
     let res = await fetch(`${API}${path}`, { ...init, headers, signal: AbortSignal.timeout(20_000) });
-    if ((res.status === 401 || res.status === 403) && headers.has("Authorization") && init.auth === false) {
+    if ((res.status === 401 || res.status === 403) && headers.has("Authorization") && init.auth === false && !this.configured) {
       headers.delete("Authorization"); // a bad read token shouldn't break public reads
       res = await fetch(`${API}${path}`, { ...init, headers, signal: AbortSignal.timeout(20_000) });
     }
     if (res.status === 403 && /rate limit/i.test(await res.clone().text())) throw new Error("GitHub is rate-limiting anonymous reads from this server; set GITHUB_TOKEN (any read-only token) in Vercel");
     if (!res.ok) throw new Error(`GitHub ${init.method ?? "GET"} ${path}: ${res.status} ${(await res.text()).slice(0, 200)}`);
     return (await res.json()) as T;
+  }
+
+  private checked?: { at: number; ok: boolean; detail: string };
+
+  /** Can the App actually reach the data repo? Cached for ten minutes. Never writes. */
+  async check(): Promise<{ ok: boolean; detail: string }> {
+    if (!this.configured) return { ok: false, detail: "GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY isn't set" };
+    if (this.checked && Date.now() - this.checked.at < 10 * 60_000) return this.checked;
+    let result: { ok: boolean; detail: string };
+    try {
+      await this.installationToken();
+      const r = await this.api<{ permissions?: Record<string, boolean>; full_name: string }>(`/repos/${this.repo}`);
+      result = r.permissions?.push === false ? { ok: false, detail: `the App can read ${r.full_name} but not write to it; give it Contents and Pull requests read and write` } : { ok: true, detail: `connected to ${r.full_name}` };
+    } catch (err) {
+      const m = (err as Error).message;
+      result = { ok: false, detail: /PEM|key|asn1|DECODER|unsupported/i.test(m) ? "the private key didn't load; paste the whole .pem file, BEGIN to END lines included" : /not installed/i.test(m) ? `the App isn't installed on ${this.repo}; install it from the App's page` : m.slice(0, 200) };
+    }
+    this.checked = { at: Date.now(), ...result };
+    return result;
   }
 
   async branchSha(branch: string): Promise<string> {
