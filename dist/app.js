@@ -7,9 +7,11 @@ import { classify } from "./agent/classify.js";
 import { drafts, signDraft, verifyDraft } from "./agent/drafts.js";
 import { RESTING } from "./agent/agent.js";
 import { verifyWebhook } from "./github/app.js";
+import { emailConfigured, emailStewards, stewardAddresses } from "./notify/email.js";
+import { isoWeek } from "./agent/questionlog.js";
 import { getVitalSigns } from "./vitals/index.js";
 import { chatScript } from "./web/chat.js";
-import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage } from "./web/pages.js";
+import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage, stewardsPage } from "./web/pages.js";
 export function createApp(state) {
     const app = new Hono();
     // Serverless hosts: make sure the index exists, and refresh it in the background when stale.
@@ -39,42 +41,53 @@ export function createApp(state) {
     app.get("/", async (c) => c.html(homePage(state, await safeVitals())));
     app.get("/about", (c) => c.html(aboutPage(state)));
     app.get("/sources", async (c) => c.html(sourcesPage(state, await safeVitals())));
-    app.get("/proposals", async (c) => {
+    app.get("/proposals", async (c) => c.html(proposalsPage(state, await pendingFor("proposal"))));
+    app.get("/correct", async (c) => c.html(correctPage(state, await pendingFor("correction"))));
+    const contactMode = () => (emailConfigured(state.cfg, state.repo) ? "email" : state.github.configured ? "public" : "none");
+    app.get("/contact", (c) => c.html(contactPage(state, contactMode())));
+    app.get("/stewards", async (c) => {
+        let queue = [];
+        let queueError;
         try {
-            return c.html(proposalsPage(state, await cachedPrs("proposal")));
+            queue = (await cachedPrs("")).filter((p) => p.labels.some((l) => ["event", "correction", "proposal", "log", "contact"].includes(l)) || /^(Event|Correction|Proposal|Question log):/.test(p.title));
         }
         catch (err) {
-            return c.html(proposalsPage(state, [], err.message));
+            queueError = err.message;
         }
+        const week = isoWeek();
+        return c.html(stewardsPage(state, queue, queueError, {
+            github: state.github.configured, email: emailConfigured(state.cfg, state.repo), emailTo: stewardAddresses(state.cfg, state.repo),
+            model: state.agent ? state.cfg.model : undefined, spent: state.budget.spent, limit: state.budget.limit,
+            sha: state.repo.sha, built: state.lastBuild, loadErrors: state.loadErrors, log: state.log.all()[week] ?? {}, week,
+        }));
     });
-    app.get("/correct", async (c) => {
-        let prs = [];
-        try {
-            prs = await cachedPrs("correction");
-        }
-        catch { /* shown as link */ }
-        return c.html(correctPage(state, prs));
-    });
-    app.get("/contact", (c) => c.html(contactPage(state)));
     app.post("/contact", async (c) => {
         const form = await c.req.parseBody();
+        const mode = contactMode();
         if (String(form.website ?? ""))
-            return c.html(contactPage(state, { ok: "Thanks." }));
+            return c.html(contactPage(state, mode, { ok: "Thanks." }));
         const subject = String(form.subject ?? "").trim().slice(0, 140);
         const message = String(form.message ?? "").trim().slice(0, 4000);
         const reach = String(form.reach ?? "").trim().slice(0, 140);
         if (!subject || !message)
-            return c.html(contactPage(state, { error: "Subject and message are both needed." }));
+            return c.html(contactPage(state, mode, { error: "Subject and message are both needed." }));
         if (!state.limiter.allow("contact:" + clientIp(c)))
-            return c.html(contactPage(state, { error: "Too many in a row. Try again in a few minutes." }));
-        if (!state.github.configured)
-            return c.html(contactPage(state, { error: "The stewards haven't connected GitHub to this page yet. Email them instead, or open an issue on the repo." }));
+            return c.html(contactPage(state, mode, { error: "Too many in a row. Try again in a few minutes." }));
         try {
-            const r = await state.github.openIssue({ title: subject, body: `${message}\n\n${reach ? `Reach: ${reach}\n\n` : ""}_Sent from the contact page of the neighborhood agent._`, labels: ["contact"] });
-            return c.html(contactPage(state, { ok: `It's public at ${r.url}` }));
+            if (mode === "email") {
+                await emailStewards(state.cfg, state.repo, { subject: `Note from a neighbor: ${subject}`, text: `${message}\n\n${reach ? `How to reach them: ${reach}\n\n` : "They didn't leave a way to reach them.\n\n"}Sent from the contact page.`, replyTo: /@/.test(reach) ? reach : undefined });
+            }
+            else if (mode === "public") {
+                await state.github.openIssue({ title: subject, body: `${message}\n\n${reach ? `Reach: ${reach}\n\n` : ""}_Sent from the contact page._`, labels: ["contact"] });
+            }
+            else {
+                return c.html(contactPage(state, mode));
+            }
+            return c.html(contactPage(state, mode, { ok: "A steward will see it soon." }));
         }
         catch (err) {
-            return c.html(contactPage(state, { error: `Couldn't open the issue: ${err.message}` }));
+            console.error("[contact]", err);
+            return c.html(contactPage(state, mode, { error: "That didn't go through. Try again in a little while." }));
         }
     });
     app.get("/api/vitals", async (c) => c.json(await safeVitals()));
@@ -102,7 +115,7 @@ export function createApp(state) {
                 const result = await state.agent.respond(messages, { repo: state.repo, index: state.index, log: state.log }, {
                     onText: (d) => void send("text", d),
                     onTool: (name) => void send("tool", name),
-                    onDraft: (d) => void send("draft", { id: d.id, path: d.path, content: d.content, kind: d.kind, token: signDraft(d) }),
+                    onDraft: (d) => void send("draft", { id: d.id, kind: d.kind, summary: d.summary, token: signDraft(d) }),
                 });
                 await send("done", { tools: result.tools_used });
                 const question = messages[messages.length - 1].content;
@@ -129,18 +142,40 @@ export function createApp(state) {
             return c.json({ error: "That draft expired. Ask again and I'll redraft it." }, 404);
         if (!state.limiter.allow("confirm:" + clientIp(c)))
             return c.json({ error: "Too many in a row. Try again in a few minutes." }, 429);
-        const fallback_url = state.github.repo ? `${state.github.repoUrl}/new/${state.cfg.dataRepoBranch}?filename=${encodeURIComponent(draft.path)}&value=${encodeURIComponent(draft.content)}` : undefined;
-        if (!state.github.configured)
-            return c.json({ error: "The stewards haven't connected GitHub to this page yet, so I can't open it for you.", fallback_url });
-        try {
-            const pr = await state.github.openPr({ path: draft.path, content: draft.content, title: draft.title, body: draft.body, labels: draft.labels, base: state.cfg.dataRepoBranch });
+        // Neighbors only ever hear "sent". Stewards get a pull request when GitHub is connected, and an
+        // email either way; without the pull request, the email carries everything plus a one-click add.
+        let prUrl;
+        let prError;
+        if (state.github.configured) {
+            try {
+                prUrl = (await state.github.openPr({ path: draft.path, content: draft.content, title: draft.title, body: draft.body, labels: draft.labels, base: state.cfg.dataRepoBranch })).url;
+            }
+            catch (err) {
+                prError = err.message;
+                console.error("[confirm] pull request", err);
+            }
+        }
+        let emailed = false;
+        if (emailConfigured(state.cfg, state.repo)) {
+            const addUrl = `${state.github.repoUrl}/new/${state.cfg.dataRepoBranch}?filename=${encodeURIComponent(draft.path)}&value=${encodeURIComponent(draft.content)}`;
+            const lines = [
+                `A neighbor sent this through Knowy.`, "", ...draft.summary.map(([k, v]) => `${k}: ${v}`), "", `In their words: ${draft.ask}`, "",
+                prUrl ? `Review and merge: ${prUrl}` : `GitHub action needed. ${prError ? `The pull request couldn't be opened (${prError}).` : "The GitHub App isn't connected, so no pull request was opened."} Add it in one click (opens GitHub with the file filled in): ${addUrl}`,
+                "", "The file:", `${draft.path}`, "", draft.content,
+            ];
+            try {
+                await emailStewards(state.cfg, state.repo, { subject: `${draft.kind === "event" ? "New event" : draft.kind === "correction" ? "Correction" : "Proposal"} from a neighbor: ${draft.title.replace(/^(Event|Correction|Proposal):\s*/, "")}${prUrl ? "" : " (GitHub action needed)"}`, text: lines.join("\n") });
+                emailed = true;
+            }
+            catch (err) {
+                console.error("[confirm] email", err);
+            }
+        }
+        if (prUrl || emailed) {
             drafts.delete(draft.id);
-            return c.json({ url: pr.url, number: pr.number });
+            return c.json({ ok: true });
         }
-        catch (err) {
-            console.error("[confirm]", err);
-            return c.json({ error: `Couldn't open the PR: ${err.message}`, fallback_url });
-        }
+        return c.json({ error: "I couldn't reach the stewards just now. Try again in a little while, or write to them on the contact page." });
     });
     /** GitHub webhook: rebuild when the data repo's branch moves. */
     app.post("/api/webhook/github", async (c) => {
@@ -156,6 +191,14 @@ export function createApp(state) {
     async function safeVitals() {
         try {
             return await getVitalSigns(state.repo);
+        }
+        catch {
+            return [];
+        }
+    }
+    async function pendingFor(label) {
+        try {
+            return (await cachedPrs(label)).map((p) => ({ title: p.title, created_at: p.created_at }));
         }
         catch {
             return [];

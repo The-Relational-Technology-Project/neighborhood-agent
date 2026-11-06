@@ -1,6 +1,6 @@
 sources:
   - id: repo
-    name: this repo
+    name: the neighborhood notes
     url: https://example.org/elsewhere-repo
     type: repo-file
     adapter: repo

@@ -23,6 +23,7 @@ export function makeDraft(input, today = localDate()) {
     let content;
     let title;
     let why;
+    let summary;
     switch (input.kind) {
         case "event": {
             const date = clean(f.date) || today;
@@ -35,11 +36,12 @@ export function makeDraft(input, today = localDate()) {
                 ...(clean(f.end) ? { end: clean(f.end) } : {}),
                 place: clean(f.place) || "to be confirmed",
                 host: clean(f.host) || "a neighbor",
-                contact: clean(f.contact) || "ask the agent",
+                ...(clean(f.contact) ? { contact: clean(f.contact) } : {}),
                 source: "told to the agent by the host",
                 added: today,
             }, clean(f.description) || "No description yet.");
             title = `Event: ${name} on ${date}`;
+            summary = [["Event", name], ["When", `${date}${clean(f.start) ? `, ${clean(f.start)}${clean(f.end) ? `–${clean(f.end)}` : ""}` : ""}`], ["Where", clean(f.place) || "to be confirmed"], ["Host", clean(f.host) || "a neighbor"], ["Contact", clean(f.contact)], ["About", clean(f.description)]];
             why = "A neighbor asked to add this event to the neighborhood calendar.";
             break;
         }
@@ -56,6 +58,7 @@ export function makeDraft(input, today = localDate()) {
                 date: today,
             }, clean(f.note) || "");
             title = `Correction: ${target} (${clean(f.field) || "other"})`;
+            summary = [["About", target], ["What's changing", clean(f.field) || "other"], ["Knowy had", clean(f.was)], ["It should be", clean(f.now)], ["How you know", clean(f.how_known)], ["From", clean(f.by) || "a neighbor"]];
             why = "A neighbor said the agent had this wrong. Corrections in the repo override fetched data.";
             break;
         }
@@ -69,6 +72,7 @@ export function makeDraft(input, today = localDate()) {
                 `## Comments\n\n- ${today}, agent: opened on behalf of a neighbor.`,
             ].join("\n\n"));
             title = `Proposal: ${name}`;
+            summary = [["Idea", name], ["What", clean(f.what)], ["Why now", clean(f.why)], ["Already out there?", clean(f.already_exists) || "Knowy didn't find anything that does this yet"], ["Proposed by", clean(f.proposer) || "a neighbor"]];
             why = "A neighbor wants this and nothing in the repo already does it. A proposal is a public note, not a commitment.";
             break;
         }
@@ -82,6 +86,7 @@ export function makeDraft(input, today = localDate()) {
         labels: [input.kind],
         created_at: new Date().toISOString(),
         ask,
+        summary: summary.filter(([, v]) => v),
         body: [
             `**What the neighbor asked for, in their words**\n\n> ${ask.replace(/\n/g, "\n> ")}`,
             `**What the agent changed**\n\nAdds \`${path}\`.`,

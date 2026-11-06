@@ -121,6 +121,11 @@ form.ask textarea{flex:1;font:inherit;font-size:16px;line-height:1.4;padding:12p
 form.ask button{min-height:48px;min-width:72px;padding:0 20px}
 .draft{border:2px dashed var(--amber);border-radius:18px;padding:12px 14px;margin:8px 0 12px;background:var(--card)}
 .draft .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.draft b.k{display:block;font-family:var(--display);font-weight:600;font-size:15px;margin:0 0 8px}
+.draft dl.summary{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0 0 10px;font-size:15.5px}
+.draft dl.summary dt{color:var(--quiet);font-weight:700}
+.draft dl.summary dd{margin:0;overflow-wrap:anywhere}
+.standing.ok{color:#2f6f3a;font-weight:700}
 .draft .actions button{min-height:46px}
 .standing{font-size:14px;color:var(--quiet);margin:10px 0 0}
 
@@ -177,9 +182,9 @@ ${s.body}
 </main>
 <footer>
   ${has("mark.webp") ? '<img class="mark" src="/brand/mark.webp" alt="" width="64" height="61" loading="lazy">' : ""}
-  <p class="about">${esc(s.siteName)} works for ${esc(place)}, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it drafts a public pull request and the neighborhood's stewards review it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
-  <ul class="links">${NAV.filter(([href]) => href !== "/").map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join("")}<li><a href="${esc(s.repoUrl)}">The repo</a></li></ul>
-  <p class="fine"><span>Data CC BY 4.0</span><span><a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">Code, MIT</a></span><span><a href="https://relationaltechproject.org">Relational Tech Project</a></span></p>
+  <p class="about">${esc(s.siteName)} works for ${esc(place)}, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it checks with you first, then sends it to the neighbors who look after it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
+  <ul class="links">${NAV.filter(([href]) => href !== "/").map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join("")}</ul>
+  <p class="fine"><span>Data CC BY 4.0</span><span><a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">Open source</a></span><span><a href="https://relationaltechproject.org">Relational Tech Project</a></span><span><a href="/stewards">For stewards</a></span></p>
 </footer>
 </body>
 </html>`;

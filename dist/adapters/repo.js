@@ -10,6 +10,15 @@ export const repoAdapter = {
         const src = sourceRef(ctx);
         const base = { source: src, fetched_at: ctx.fetchedAt };
         const out = [];
+        // Links neighbors see: the site's own pages when the source URL is the site; GitHub files only
+        // when the steward pointed the source at GitHub (forks without a site).
+        const onGithub = /github\.com/.test(src.url);
+        let origin = src.url;
+        try {
+            origin = new URL(src.url).origin;
+        }
+        catch { /* keep as is */ }
+        const link = (file, page) => (onGithub ? `${src.url}/blob/main/${file}` : `${origin}${page}`);
         for (const e of repo.events) {
             const d = e.data;
             const date = String(d.date ?? e.file.slice(0, 10));
@@ -24,7 +33,7 @@ export const repoAdapter = {
                 start,
                 end: d.end ? `${date}T${String(d.end)}` : undefined,
                 location: d.place ? String(d.place) : undefined,
-                url: `${src.url}/blob/main/events/${e.file}`,
+                url: /^https?:\/\//.test(String(d.contact ?? "")) ? String(d.contact) : onGithub ? `${src.url}/blob/main/events/${e.file}` : undefined,
                 verified_at: d.added ? String(d.added) : undefined,
                 extra: d,
             });
@@ -38,7 +47,7 @@ export const repoAdapter = {
                 title: String(d.title ?? p.file),
                 text: `Status: ${String(d.status ?? "open")}. Proposed by ${String(d.proposer ?? "a neighbor")} on ${String(d.opened ?? "")}.\n${p.body}`,
                 date: d.opened ? String(d.opened) : undefined,
-                url: `${src.url}/blob/main/proposals/${p.file}`,
+                url: link(`proposals/${p.file}`, "/proposals"),
                 tags: ["proposal", String(d.status ?? "open")],
                 extra: d,
             });
@@ -51,7 +60,7 @@ export const repoAdapter = {
                 title: `Correction: ${c.target} (${c.field})`,
                 text: `${c.was ? `Was: ${c.was}. ` : ""}Now: ${c.now}. ${c.how_known ? `How known: ${c.how_known}. ` : ""}By ${c.by ?? "a neighbor"} on ${c.date}.${c.note ? `\n${c.note}` : ""}`,
                 date: c.date,
-                url: `${src.url}/blob/main/corrections/${c.file}`,
+                url: link(`corrections/${c.file}`, "/correct"),
             });
         }
         for (const person of [...repo.people, ...repo.orgs]) {
@@ -100,7 +109,7 @@ export const repoAdapter = {
                 kind: "constituent",
                 title: c.name,
                 text: `${c.body}\n\nAdvocates: ${c.advocates.join("; ") || "none listed"}. Feeds: ${c.feeds.join(", ") || "none"}.`,
-                url: `${src.url}/blob/main/constituents/${c.slug}.md`,
+                url: link(`constituents/${c.slug}.md`, "/about"),
                 tags: [c.kind, "constituent", "more-than-human"],
             });
         }
@@ -111,7 +120,7 @@ export const repoAdapter = {
                 kind: "archive-note",
                 title: String(a.data.title ?? a.file.replace(/\.md$/, "")),
                 text: a.body,
-                url: `${src.url}/blob/main/archive/${a.file}`,
+                url: onGithub ? `${src.url}/blob/main/archive/${a.file}` : undefined,
             });
         }
         return out;

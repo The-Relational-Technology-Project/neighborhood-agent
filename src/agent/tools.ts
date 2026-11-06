@@ -76,7 +76,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: "draft_pr",
     description:
-      "Draft the exact file for a write action. Returns the file path and content to show the neighbor. Does NOT open a pull request; only the neighbor's tap on 'Yes, open the PR' does that. For 'proposal', the result also says how many times the topic has come up before. Call this only after you have collected the fields in conversation.",
+      "Prepare something a neighbor wants added: an event, a correction, or a proposal. The page shows them a summary card with a 'Yes, send it' button; nothing is sent until they tap it, and a steward looks it over before it's added. For 'proposal', the result also says how many times the topic has come up before. Call this only after you have collected the fields in conversation.",
     input_schema: {
       type: "object",
       properties: {
@@ -85,7 +85,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
         fields: {
           type: "object",
           description:
-            "String fields, by kind. event: title, date (YYYY-MM-DD), start (HH:MM), end, place, host, contact, description. correction: target (the record id you showed, or a short description), field (hours|address|closed|name|other), was, now, how_known, by, note. proposal: title, proposer, what, why, already_exists.",
+            "String fields, by kind. event: title, date (YYYY-MM-DD), start (HH:MM), end, place, host, contact (a public way to reach the host, only if they give one; leave it out otherwise), description. correction: target (the record id you showed, or a short description), field (hours|address|closed|name|other), was, now, how_known, by, note. proposal: title, proposer, what, why, already_exists.",
           additionalProperties: { type: "string" },
         },
       },
@@ -143,7 +143,7 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
       const draft = makeDraft({ kind, ask: String(args.ask ?? ""), fields });
       ctx.onDraft?.(draft);
       const came = kind === "proposal" ? `This topic has come up ${ctx.log.count("proposal")} time(s) before in the question log.\n` : "";
-      return `${came}Draft ready (id ${draft.id}). Show this to the neighbor exactly, in a code block, then tell them to tap "Yes, open the PR" if it looks right, that a steward will review, and that the PR is public.\n\nPath: ${draft.path}\n\n${draft.content}`;
+      return `${came}Ready. The page now shows the neighbor a card with this summary and a "Yes, send it" button:\n${draft.summary.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\nIn a sentence or two, tell them to tap "Yes, send it" if it looks right, that a neighborhood steward looks it over before it's added, and that once added it's public. Don't repeat the details, show files, or mention pull requests.`;
     }
     default:
       return `Unknown tool ${name}.`;

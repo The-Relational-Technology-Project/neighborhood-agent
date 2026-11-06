@@ -13,3 +13,27 @@ describe("html helpers", () => {
     expect(md("<script>x</script>")).not.toContain("<script>");
   });
 });
+
+describe("neighbor-facing copy", () => {
+  it("never mentions pull requests, GitHub, or the repo on neighbor pages", async () => {
+    const { AppState } = await import("../src/state.js");
+    const pages = await import("../src/web/pages.js");
+    const { FIXTURE, tmpCache } = await import("./helpers.js");
+    process.env.DATA_REPO = FIXTURE;
+    const cfg = { ...(await import("../src/config.js")).loadConfig(), dataRepo: FIXTURE, cacheDir: await tmpCache() };
+    const fs = await import("node:fs/promises");
+    const { OUTER_SUNSET } = await import("./helpers.js");
+    let root = FIXTURE;
+    try { await fs.access(OUTER_SUNSET); root = OUTER_SUNSET; } catch { /* fixture only */ }
+    const state = new AppState({ ...cfg, dataRepo: root });
+    await state.rebuild();
+    const neighborPages = [pages.homePage(state, []), pages.aboutPage(state), pages.sourcesPage(state, []), pages.proposalsPage(state, []), pages.correctPage(state, []), pages.contactPage(state, "email")];
+    for (const html of neighborPages) {
+      const visible = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, " ");
+      expect(visible).not.toMatch(/pull request|\bPRs?\b|\brepo\b|GitHub|\.ya?ml\b|\.md\b/i);
+    }
+    const desk = pages.stewardsPage(state, [], undefined, { github: false, email: false, emailTo: [], spent: 0, limit: 5, loadErrors: [], log: {}, week: "2026-W45" });
+    expect(desk).toContain("noindex");
+    expect(desk).toContain("GitHub App");
+  });
+});

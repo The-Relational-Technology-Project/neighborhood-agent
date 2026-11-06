@@ -60,7 +60,15 @@ export class GitHub {
         headers.set("User-Agent", "neighborhood-agent");
         if (init.auth !== false && this.configured)
             headers.set("Authorization", `Bearer ${await this.installationToken()}`);
-        const res = await fetch(`${API}${path}`, { ...init, headers, signal: AbortSignal.timeout(20_000) });
+        else if (process.env.GITHUB_TOKEN)
+            headers.set("Authorization", `Bearer ${process.env.GITHUB_TOKEN}`); // public reads, higher rate limit
+        let res = await fetch(`${API}${path}`, { ...init, headers, signal: AbortSignal.timeout(20_000) });
+        if ((res.status === 401 || res.status === 403) && headers.has("Authorization") && init.auth === false) {
+            headers.delete("Authorization"); // a bad read token shouldn't break public reads
+            res = await fetch(`${API}${path}`, { ...init, headers, signal: AbortSignal.timeout(20_000) });
+        }
+        if (res.status === 403 && /rate limit/i.test(await res.clone().text()))
+            throw new Error("GitHub is rate-limiting anonymous reads from this server; set GITHUB_TOKEN (any read-only token) in Vercel");
         if (!res.ok)
             throw new Error(`GitHub ${init.method ?? "GET"} ${path}: ${res.status} ${(await res.text()).slice(0, 200)}`);
         return (await res.json());

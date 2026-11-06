@@ -45,23 +45,25 @@ export const chatScript = String.raw `
   }
   function addDraft(d){
     var box = el('div', 'draft');
-    box.appendChild(el('b', 'k', 'Proposed change: ' + d.path));
-    var pre = el('pre', null, d.content); box.appendChild(pre);
-    var note = el('div', 'standing', 'This opens a public pull request on the neighborhood repo. A steward reviews it before anything changes. Nothing else from this conversation is kept.'); box.appendChild(note);
+    box.appendChild(el('b', 'k', 'Here’s what I’ll send to the stewards'));
+    var dl = el('dl', 'summary');
+    (d.summary || []).forEach(function(pair){ dl.appendChild(el('dt', null, pair[0])); dl.appendChild(el('dd', null, pair[1])); });
+    box.appendChild(dl);
+    box.appendChild(el('div', 'standing', 'A neighborhood steward looks it over before it’s added. Once added, it’s public. Nothing else from this chat is kept.'));
     var actions = el('div', 'actions');
-    var yes = el('button', null, 'Yes, open the PR'); var no = el('button', 'ghost', 'Not yet');
+    var yes = el('button', null, 'Yes, send it'); var no = el('button', 'ghost', 'Not yet');
     actions.appendChild(yes); actions.appendChild(no); box.appendChild(actions); log.appendChild(box); toBottom(true);
-    no.onclick = function(){ box.remove(); addMsg('assistant', "Okay, I won't open it. Tell me what to change, or we can leave it."); };
+    no.onclick = function(){ box.remove(); addMsg('assistant', "Okay, I won't send it. Tell me what to change, or we can leave it."); };
     yes.onclick = function(){
-      yes.disabled = true; no.disabled = true; yes.textContent = 'Opening…';
+      yes.disabled = true; no.disabled = true; yes.textContent = 'Sending…';
       fetch('/api/confirm', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draft_id: d.id, token: d.token }) })
         .then(function(r){ return r.json(); })
         .then(function(res){
           actions.remove();
-          if (res.url) { var p = el('div', 'standing'); p.appendChild(document.createTextNode('Opened. A steward will review it: ')); var a = el('a', null, res.url); a.href = res.url; a.target = '_blank'; p.appendChild(a); box.appendChild(p); history.push({ role: 'assistant', content: 'The pull request is open at ' + res.url + '. A steward will review it.' }); }
-          else { var e = el('div', 'standing err', res.error || 'Could not open the PR.'); box.appendChild(e); if (res.fallback_url) { var a2 = el('a', null, 'Open it by hand on GitHub'); a2.href = res.fallback_url; a2.target = '_blank'; box.appendChild(a2); } }
+          if (res.ok) { box.appendChild(el('div', 'standing ok', 'Sent. A steward will look it over. Thank you.')); history.push({ role: 'assistant', content: 'Sent to the stewards.' }); }
+          else { box.appendChild(el('div', 'standing err', res.error || 'I couldn’t send that just now.')); }
         })
-        .catch(function(){ yes.disabled = false; no.disabled = false; yes.textContent = 'Yes, open the PR'; });
+        .catch(function(){ yes.disabled = false; no.disabled = false; yes.textContent = 'Yes, send it'; });
     };
   }
   function setBusy(b){ send.disabled = b; box.disabled = b; }
