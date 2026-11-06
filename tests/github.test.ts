@@ -31,7 +31,8 @@ describe("private key pasted into a dashboard", () => {
     const { generateKeyPairSync, createSign } = await import("node:crypto");
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     const pem = privateKey.export({ type: "pkcs1", format: "pem" }) as string;
-    for (const mangled of [pem.replace(/\n/g, " "), pem.replace(/\n/g, "\\n"), `"${pem}"`, pem.replace(/\n/g, "\r\n")]) {
+    const bodyOnly = pem.replace(/-----[^-]+-----/g, "").trim();
+    for (const mangled of [pem.replace(/\n/g, " "), pem.replace(/\n/g, "\\n"), `"${pem}"`, pem.replace(/\n/g, "\r\n"), bodyOnly, bodyOnly.replace(/\n/g, " ")]) {
       const fixed = normalizePem(mangled)!;
       const s = createSign("RSA-SHA256"); s.update("x");
       expect(() => s.sign(fixed)).not.toThrow();

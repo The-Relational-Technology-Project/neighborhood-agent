@@ -2,6 +2,7 @@
  * All configuration comes from the environment. Nothing secret lives in a repo.
  * The data repo is the one thing every deployment must set: a local path or a git URL.
  */
+import { createPrivateKey } from "node:crypto";
 import path from "node:path";
 
 function env(name: string, fallback?: string): string | undefined {
@@ -51,7 +52,17 @@ export function normalizePem(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   const v = raw.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").replace(/\r/g, "");
   const m = v.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
-  if (!m) return v;
+  if (!m) {
+    // Just the key body, without its BEGIN and END lines: wrap it in whichever label it parses as.
+    const body = v.replace(/\s+/g, "");
+    if (!/^[A-Za-z0-9+/=]{500,}$/.test(body)) return v;
+    const lines = body.match(/.{1,64}/g)?.join("\n") ?? "";
+    for (const label of ["RSA PRIVATE KEY", "PRIVATE KEY"]) {
+      const pem = `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----\n`;
+      try { createPrivateKey(pem); return pem; } catch { /* try the next label */ }
+    }
+    return v;
+  }
   const body = m[2].replace(/\s+/g, "");
   return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)?.join("\n") ?? ""}\n-----END ${m[1]}-----\n`;
 }
