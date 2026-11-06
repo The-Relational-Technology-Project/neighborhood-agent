@@ -1,0 +1,26 @@
+sources:
+  - id: repo
+    name: this repo
+    url: https://example.org/elsewhere-repo
+    type: repo-file
+    adapter: repo
+    refresh: 5m
+    status: live
+  - id: town-calendar
+    name: Elsewhere town calendar
+    url: https://example.org/calendar
+    type: feed
+    adapter: ics
+    refresh: 1h
+    status: live
+    config:
+      ics_url: file:fixtures/calendar.ics
+      horizon_days: 400
+  - id: plover-season
+    name: Riverbank plover season
+    url: https://example.org/plovers
+    type: repo-file
+    adapter: plover-season
+    refresh: 24h
+    status: live
+    vital_sign: true

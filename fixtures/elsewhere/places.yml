@@ -1,0 +1,16 @@
+places:
+  - name: The Corner Store
+    address: 1 Main St
+    what: groceries and the notice board
+    url: https://example.org/corner
+    hours: "7am to 9pm daily"
+    hours_source: "door sign"
+    last_verified: 2026-01-15
+    tags: [groceries, flyers]
+  - name: The Diner
+    address: 2 Main St
+    what: breakfast all day
+    hours: null
+    hours_source: null
+    last_verified: null
+    tags: [food]

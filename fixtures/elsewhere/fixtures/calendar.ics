@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Elsewhere//Calendar//EN
+BEGIN:VEVENT
+UID:market-1@elsewhere
+DTSTART;TZID=America/Los_Angeles:20260110T090000
+DTEND;TZID=America/Los_Angeles:20260110T130000
+RRULE:FREQ=WEEKLY;BYDAY=SA
+SUMMARY:Saturday market
+LOCATION:Main Street at the river
+DESCRIPTION:Produce\, bread\, and the knife sharpener.
+URL:https://example.org/market
+END:VEVENT
+BEGIN:VEVENT
+UID:once@elsewhere
+DTSTART;TZID=America/Los_Angeles:20991231T180000
+DTEND;TZID=America/Los_Angeles:20991231T200000
+SUMMARY:Far future one-off
+LOCATION:The hall
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,37 @@
+{
+  "name": "neighborhood-agent",
+  "version": "0.1.0",
+  "description": "An AI agent that acts on behalf of a place, not a person. Reads public neighborhood data, cites everything, and turns asks into pull requests stewards review.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "nagent": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "ask": "tsx src/cli.ts ask",
+    "index": "tsx src/cli.ts index",
+    "vitals": "tsx src/cli.ts vitals",
+    "golden": "tsx src/cli.ts golden"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.7.0",
+    "minisearch": "^7.1.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}

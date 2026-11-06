@@ -1,0 +1,25 @@
+# One-step deploy: `fly launch --copy-config --yes` then `fly secrets set ...` from .env.example
+app = "neighborhood-agent"
+primary_region = "sjc"
+
+[build]
+
+[env]
+  PORT = "3000"
+  CACHE_DIR = "/data/cache"
+  DATA_REPO = "https://github.com/The-Relational-Technology-Project/outer-sunset"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[mounts]
+  source = "agent_cache"
+  destination = "/data"

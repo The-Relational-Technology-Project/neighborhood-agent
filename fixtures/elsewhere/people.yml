@@ -1,0 +1,13 @@
+people:
+  - name: Pat Example
+    org: Elsewhere Stewards
+    role: first steward
+    reach: pat@example.org
+    topics: [stewarding]
+    listed: 2026-01-01
+    consent: wrote the fixture
+orgs:
+  - name: Elsewhere Tool Library
+    role: lends tools to members
+    reach: https://example.org/tools
+    topics: [borrowing tools, a tool library]

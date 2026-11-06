@@ -1,0 +1,6 @@
+resources:
+  - name: Elsewhere Tool Library
+    what: borrow a ladder, a drill, a tent
+    url: https://example.org/tools
+    answers: [do we have a tool library, how do I borrow a ladder]
+    how_to_use: Sign up at the library desk.
