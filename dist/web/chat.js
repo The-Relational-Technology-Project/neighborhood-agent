@@ -6,6 +6,17 @@ export const chatScript = String.raw `
   var box = document.getElementById('q');
   var send = document.getElementById('send');
   var history = [];
+  var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  function nearBottom(){ return log.scrollHeight - log.scrollTop - log.clientHeight < 120; }
+  function toBottom(force){ if (force || nearBottom()) log.scrollTop = log.scrollHeight; }
+  var anchor = null, userScrolled = false;
+  log.addEventListener('touchmove', function(){ userScrolled = true; }, { passive: true });
+  log.addEventListener('wheel', function(){ userScrolled = true; }, { passive: true });
+  function follow(){ if (userScrolled || !anchor) return; var target = anchor.offsetTop - 8; log.scrollTop = Math.min(target, log.scrollHeight - log.clientHeight); }
+  function grow(){ box.style.height = 'auto'; box.style.height = Math.min(box.scrollHeight, 132) + 'px'; }
+  box.addEventListener('input', grow);
+  box.addEventListener('focus', function(){ setTimeout(function(){ toBottom(true); }, 250); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (document.activeElement === box) toBottom(true); });
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function inline(part, frag){
     var re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|(https?:\/\/[^\s<)\]]+[^\s<)\].,;:!?])/g, last = 0, m;
@@ -30,7 +41,7 @@ export const chatScript = String.raw `
   function addMsg(role, text){
     var m = el('div', 'msg ' + (role === 'user' ? 'n' : 'a'));
     m.appendChild(el('span', 'who ' + (role === 'user' ? 'n' : 'a'), role === 'user' ? 'You' : 'Agent'));
-    var t = el('span', 'txt'); t.appendChild(linkify(text)); m.appendChild(t); log.appendChild(m); log.scrollTop = log.scrollHeight; return t;
+    var t = el('span', 'txt'); t.appendChild(linkify(text)); m.appendChild(t); log.appendChild(m); toBottom(true); return t;
   }
   function addDraft(d){
     var box = el('div', 'draft');
@@ -39,7 +50,7 @@ export const chatScript = String.raw `
     var note = el('div', 'standing', 'This opens a public pull request on the neighborhood repo. A steward reviews it before anything changes. Nothing else from this conversation is kept.'); box.appendChild(note);
     var actions = el('div', 'actions');
     var yes = el('button', null, 'Yes, open the PR'); var no = el('button', 'ghost', 'Not yet');
-    actions.appendChild(yes); actions.appendChild(no); box.appendChild(actions); log.appendChild(box); log.scrollTop = log.scrollHeight;
+    actions.appendChild(yes); actions.appendChild(no); box.appendChild(actions); log.appendChild(box); toBottom(true);
     no.onclick = function(){ box.remove(); addMsg('assistant', "Okay, I won't open it. Tell me what to change, or we can leave it."); };
     yes.onclick = function(){
       yes.disabled = true; no.disabled = true; yes.textContent = 'Opening…';
@@ -62,7 +73,7 @@ export const chatScript = String.raw `
   form.addEventListener('submit', function(ev){
     ev.preventDefault();
     var q = box.value.trim(); if (!q) return;
-    box.value = ''; if (suggest) { suggest.remove(); suggest = null; } addMsg('user', q); history.push({ role: 'user', content: q }); setBusy(true);
+    box.value = ''; grow(); if (touch) box.blur(); if (suggest) { suggest.remove(); suggest = null; } addMsg('user', q); anchor = log.lastChild; userScrolled = false; history.push({ role: 'user', content: q }); setBusy(true);
     var out = addMsg('assistant', ''); var text = '';
     fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: history }) })
       .then(function(r){
@@ -75,7 +86,7 @@ export const chatScript = String.raw `
           lines.forEach(function(chunk){
             var evm = chunk.match(/^event: (\w+)\ndata: (.*)$/s); if (!evm) return;
             var data = JSON.parse(evm[2]);
-            if (evm[1] === 'text') { text += data; out.textContent = ''; out.appendChild(linkify(text)); log.scrollTop = log.scrollHeight; }
+            if (evm[1] === 'text') { text += data; out.textContent = ''; out.appendChild(linkify(text)); follow(); }
             else if (evm[1] === 'tool') { var t = el('div', 'tool', 'looking: ' + data.replace(/_/g, ' ')); log.insertBefore(t, out.parentNode.nextSibling); }
             else if (evm[1] === 'draft') { addDraft(data); }
             else if (evm[1] === 'error') { out.textContent = data; out.classList.add('err'); }
@@ -86,9 +97,9 @@ export const chatScript = String.raw `
       })
       .then(function(){ if (text) history.push({ role: 'assistant', content: text }); })
       .catch(function(e){ out.textContent = e.message || 'Something went wrong.'; out.classList.add('err'); })
-      .then(function(){ setBusy(false); box.focus(); });
+      .then(function(){ setBusy(false); if (!touch) box.focus(); });
   });
-  box.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
+  box.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
   window.addEventListener('beforeunload', function(){ history = []; });
 })();
 `;

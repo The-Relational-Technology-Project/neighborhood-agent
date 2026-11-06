@@ -14,11 +14,14 @@ export function layout(s: Shell): string {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#f4efe4">
+<meta name="format-detection" content="telephone=no">
 <title>${esc(s.title)}</title>
 <meta name="description" content="A neighborhood agent for the ${esc(s.siteName)}: answers with sources, points to people, and turns asks into public proposals.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23f4efe4'/><circle cx='16' cy='16' r='7' fill='%23d9622b'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=Special+Elite&display=swap" rel="stylesheet">
 <style>
 :root{--paper:#f4efe4;--ink:#2a2622;--quiet:#6b645b;--rule:#d9d0bf;--orange:#d9622b;--sea:#2f6f8f;--sand:#e8dcc2;--card:#fbf8f1;--white:#fff}
@@ -91,6 +94,42 @@ input[type=text],input[type=email],textarea.full{width:100%;font:inherit;font-si
 .ok{color:#2f6f3a}.err{color:#a33}
 ul{padding-left:20px}li{margin:0 0 6px}
 .tag{font-family:"Special Elite",monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--rule);border-radius:999px;padding:1px 8px;color:var(--quiet)}
+/* ---- home: an app-shaped chat. Header, scrolling log, composer pinned at the bottom. ---- */
+body.home{overscroll-behavior-y:none}
+body.home header.top{height:52px;padding-top:12px;padding-bottom:0;align-items:center}
+body.home header.top .name{font-size:28px}
+body.home main{height:calc(100dvh - 52px);min-height:0;display:flex;flex-direction:column;padding:6px 16px 0;overflow:hidden}
+body.home .vline,body.home .suggest,body.home header.top{flex:0 0 auto}
+body.home .chat{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin:0 0 8px;scroll-padding-bottom:12px}
+body.home .composer{flex:0 0 auto;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+body.home footer{margin-top:0}
+.vline,.suggest{scrollbar-width:none}
+.vline::-webkit-scrollbar,.suggest::-webkit-scrollbar{display:none}
+form.ask textarea{line-height:1.4;max-height:132px;overflow-y:auto;resize:none}
+form.ask button,.draft .actions button{min-height:46px;min-width:64px}
+.suggest button{min-height:40px;touch-action:manipulation}
+button,a,textarea{-webkit-tap-highlight-color:rgba(217,98,43,.15)}
+@media (max-width:640px){
+  body{font-size:16px}
+  .vline{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;margin:0 -16px 8px;padding:0 16px;mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .suggest{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;margin:0 -16px 8px;padding:0 16px}
+  .suggest button{flex:0 0 auto}
+  .chat{padding:10px}
+  .msg{display:block;margin:0 0 10px}
+  .msg .who{display:none}
+  .msg .txt{display:block;max-width:100%}
+  .msg.n{display:flex;justify-content:flex-end}
+  .msg.n .txt{max-width:85%;background:var(--sea);color:#fff}
+  .msg.n .txt a{color:#fff}
+  .tool{margin:-4px 0 8px 2px}
+  .draft{padding:10px 12px}
+  .draft .actions{display:grid;grid-template-columns:1.4fr 1fr}
+  .draft .actions button{font-size:12px;letter-spacing:.03em;padding:0 10px;white-space:nowrap}
+  form.ask{gap:6px}
+  form.ask textarea{padding:11px 12px;border-radius:22px;min-height:46px}
+  form.ask button{border-radius:22px;padding:0 16px}
+  footer{padding-bottom:max(40px,env(safe-area-inset-bottom))}
+}
 </style>
 ${s.head ?? ""}
 </head>

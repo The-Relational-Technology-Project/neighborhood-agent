@@ -37,14 +37,16 @@ export function homePage(state: AppState, signs: VitalSign[]): string {
   const ready = Boolean(state.agent);
   const body = `
 ${vitalLine(signs)}
-<div class="chat" id="log">
+<div class="chat" id="log" role="log" aria-live="polite">
   <div class="msg a"><span class="who a">Agent</span><span class="txt">${ready ? "Ask me anything about the neighborhood. I'll tell you where I got it." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
+<div class="composer">
 ${ready ? `<div class="suggest" id="suggest">${SUGGESTIONS.map((q) => `<button type="button">${esc(q)}</button>`).join("")}</div>` : ""}
 <form class="ask" id="ask">
-  <textarea id="q" rows="1" placeholder="Ask the neighborhood" aria-label="Your question" ${ready ? "" : "disabled"}></textarea>
+  <textarea id="q" rows="1" placeholder="Ask the neighborhood" aria-label="Your question" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" ${ready ? "" : "disabled"}></textarea>
   <button id="send" type="submit" ${ready ? "" : "disabled"}>Ask</button>
 </form>
+</div>
 <script src="/chat.js" defer></script>`;
   return shell(state, "/", "Ask", body);
 }
