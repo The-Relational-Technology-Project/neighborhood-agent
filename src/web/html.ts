@@ -5,7 +5,7 @@
 export const esc = (s: unknown): string =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export interface Shell { title: string; siteName: string; repoUrl: string; path: string; body: string; head?: string }
+export interface Shell { title: string; siteName: string; placeName?: string; repoUrl: string; path: string; body: string; head?: string }
 
 const NAV: Array<[string, string]> = [["/", "Ask"], ["/about", "About"], ["/sources", "Sources"], ["/proposals", "Proposals"], ["/correct", "Correct"], ["/contact", "Contact"]];
 
@@ -51,8 +51,20 @@ th,td{text-align:left;vertical-align:top;padding:7px 8px;border-bottom:1px solid
 th{font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--quiet);font-weight:normal}
 code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px}
 pre{background:var(--white);border:1px solid var(--rule);border-radius:8px;padding:12px;overflow:auto;white-space:pre-wrap}
-footer{max-width:720px;margin:0 auto;padding:0 16px 40px;font-family:"Special Elite",monospace;font-size:12px;color:var(--quiet);letter-spacing:.04em}
+footer{max-width:720px;margin:0 auto;padding:18px 16px 40px;border-top:1px dashed var(--rule);font-size:13.5px;color:var(--quiet);line-height:1.5}
+footer p{margin:0 0 10px}
 footer a{color:var(--quiet)}
+footer .links{font-family:"Special Elite",monospace;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+footer .fine{font-family:"Special Elite",monospace;font-size:11.5px;letter-spacing:.04em}
+body.home main{display:flex;flex-direction:column;min-height:calc(100dvh - 70px);padding-top:12px;padding-bottom:20px}
+body.home .chat{flex:1;overflow-y:auto;min-height:240px;max-height:none;margin-bottom:10px}
+body.home footer{margin-top:24px}
+.vline{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:13px;color:var(--quiet);margin:0 0 10px}
+.vline b{color:var(--ink);font-weight:600}
+.vline a{color:var(--quiet);text-decoration:none}
+.suggest{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.suggest button{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;letter-spacing:0;text-transform:none;background:var(--card);color:var(--ink);border:1px solid var(--rule);border-radius:999px;padding:6px 12px}
+.suggest button:hover{border-color:var(--orange)}
 hr{border:0;border-top:1px dashed var(--rule);margin:30px 0}
 .vitals{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13.5px;color:var(--quiet);margin:0 0 18px;padding:10px 12px;background:var(--white);border:1px solid var(--rule);border-radius:10px}
 .vitals span b{color:var(--ink);font-weight:600}
@@ -64,7 +76,7 @@ hr{border:0;border-top:1px dashed var(--rule);margin:30px 0}
 .txt{background:var(--paper);padding:8px 12px;border-radius:8px;font-size:15.5px;white-space:pre-wrap;word-break:break-word;flex:1}
 .msg.a .txt{background:var(--sand)}
 .txt pre{white-space:pre-wrap;margin:8px 0}
-.txt a{word-break:break-all}
+.txt a{word-break:normal;overflow-wrap:anywhere}
 .tool{font-family:"Special Elite",monospace;font-size:11px;color:var(--quiet);margin:-4px 0 8px 74px}
 form.ask{display:flex;gap:8px;align-items:flex-end}
 form.ask textarea{flex:1;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--white);resize:vertical;min-height:46px;max-height:200px}
@@ -82,16 +94,18 @@ ul{padding-left:20px}li{margin:0 0 6px}
 </style>
 ${s.head ?? ""}
 </head>
-<body>
+<body${s.path === "/" ? ' class="home"' : ""}>
 <header class="top">
   <a class="name" href="/">${esc(s.siteName)}</a>
-  <nav>${NAV.map(([href, label]) => `<a href="${href}"${href === s.path ? ' class="on"' : ""}>${label}</a>`).join("")}</nav>
+  ${s.path === "/" ? "" : `<nav>${NAV.map(([href, label]) => `<a href="${href}"${href === s.path ? ' class="on"' : ""}>${label}</a>`).join("")}</nav>`}
 </header>
 <main>
 ${s.body}
 </main>
 <footer>
-  <a href="${esc(s.repoUrl)}">the neighborhood repo</a> · data CC BY 4.0 · <a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">code, MIT</a> · <a href="https://relationaltechproject.org">Relational Tech Project</a>
+  <p>An agent for ${esc((s.placeName ?? "this neighborhood").replace(/^The /, "the "))} that works for the place, not any one person. It answers from public neighborhood data, cites every source, and says "I don't know" when it doesn't. If you ask it to add or fix something, it drafts a public pull request and the neighborhood's stewards review it. Nothing you type is kept; the conversation lives only in your browser tab.</p>
+  <p class="links">${NAV.filter(([href]) => href !== "/").map(([href, label]) => `<a href="${href}">${label}</a>`).join(" · ")} · <a href="${esc(s.repoUrl)}">The repo</a></p>
+  <p class="fine">Data CC BY 4.0 · <a href="https://github.com/The-Relational-Technology-Project/neighborhood-agent">code, MIT</a> · <a href="https://relationaltechproject.org">Relational Tech Project</a></p>
 </footer>
 </body>
 </html>`;

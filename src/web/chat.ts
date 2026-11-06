@@ -7,14 +7,23 @@ export const chatScript = String.raw`
   var send = document.getElementById('send');
   var history = [];
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function inline(part, frag){
+    var re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|(https?:\/\/[^\s<)\]]+[^\s<)\].,;:!?])/g, last = 0, m;
+    while ((m = re.exec(part))) {
+      frag.appendChild(document.createTextNode(part.slice(last, m.index)));
+      if (m[1]) { var a = el('a', null, m[1]); a.href = m[2]; a.target = '_blank'; a.rel = 'noopener'; frag.appendChild(a); }
+      else if (m[3]) { frag.appendChild(el('b', null, m[3])); }
+      else { var u = el('a', null, m[4].replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')); u.href = m[4]; u.target = '_blank'; u.rel = 'noopener'; frag.appendChild(u); }
+      last = m.index + m[0].length;
+    }
+    frag.appendChild(document.createTextNode(part.slice(last)));
+  }
   function linkify(text){
     var frag = document.createDocumentFragment();
     var parts = text.split(/(\x60\x60\x60[\s\S]*?\x60\x60\x60)/);
     parts.forEach(function(part){
-      if (part.indexOf('\x60\x60\x60') === 0) { var pre = el('pre', null, part.replace(/^\x60\x60\x60[a-z]*\n?/, '').replace(/\x60\x60\x60$/, '')); frag.appendChild(pre); return; }
-      var re = /(https?:\/\/[^\s<)\]]+[^\s<)\].,;:!?])/g, last = 0, m;
-      while ((m = re.exec(part))) { frag.appendChild(document.createTextNode(part.slice(last, m.index))); var a = el('a', null, m[1]); a.href = m[1]; a.target = '_blank'; a.rel = 'noopener'; frag.appendChild(a); last = m.index + m[1].length; }
-      frag.appendChild(document.createTextNode(part.slice(last)));
+      if (part.indexOf('\x60\x60\x60') === 0) { frag.appendChild(el('pre', null, part.replace(/^\x60\x60\x60[a-z]*\n?/, '').replace(/\x60\x60\x60$/, ''))); return; }
+      inline(part.replace(/^#{1,4}\s+/gm, '').replace(/^\s*[-*]\s+/gm, '• '), frag);
     });
     return frag;
   }
@@ -45,10 +54,15 @@ export const chatScript = String.raw`
     };
   }
   function setBusy(b){ send.disabled = b; box.disabled = b; }
+  var suggest = document.getElementById('suggest');
+  if (suggest) suggest.addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if (!b) return;
+    box.value = b.textContent; form.requestSubmit();
+  });
   form.addEventListener('submit', function(ev){
     ev.preventDefault();
     var q = box.value.trim(); if (!q) return;
-    box.value = ''; addMsg('user', q); history.push({ role: 'user', content: q }); setBusy(true);
+    box.value = ''; if (suggest) { suggest.remove(); suggest = null; } addMsg('user', q); history.push({ role: 'user', content: q }); setBusy(true);
     var out = addMsg('assistant', ''); var text = '';
     fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: history }) })
       .then(function(r){

@@ -12,7 +12,18 @@ function placeName(state: AppState): string {
 }
 
 const shell = (state: AppState, path: string, title: string, body: string, head?: string) =>
-  layout({ title: `${title} · ${siteName(state)}`, siteName: siteName(state), repoUrl: state.github.repoUrl, path, body, head });
+  layout({ title: `${title} · ${siteName(state)}`, siteName: siteName(state), placeName: placeName(state), repoUrl: state.github.repoUrl, path, body, head });
+
+/** One compact line of the most-asked vital signs; the full set is on /sources. */
+function vitalLine(signs: VitalSign[]): string {
+  const keep = ["tide", "water", "air", "plovers"];
+  const short = (s: VitalSign) => (s.id === "plovers" ? (s.value.startsWith("protection") ? "dogs leashed on the south beach" : "off season") : s.id === "water" ? s.value.split(",")[0] : s.value.replace(/^next /, ""));
+  const list = signs.filter((s) => keep.includes(s.id) && !s.error);
+  if (!list.length) return "";
+  return `<div class="vline">${list.map((s) => `<span><b>${esc(s.label)}</b> <a href="/sources" title="${esc(s.source.name)}">${esc(short(s))}</a></span>`).join("")}</div>`;
+}
+
+const SUGGESTIONS = ["What's happening this weekend?", "How's the ocean today?", "Who should I talk to about meeting neighbors?", "I want to add an event"];
 
 export function vitalsHtml(signs: VitalSign[]): string {
   if (!signs.length) return "";
@@ -25,19 +36,15 @@ export function vitalsHtml(signs: VitalSign[]): string {
 export function homePage(state: AppState, signs: VitalSign[]): string {
   const ready = Boolean(state.agent);
   const body = `
-<p class="stamp">${esc(placeName(state))} · a neighborhood agent</p>
-<h1>Ask the neighborhood</h1>
-<p class="sub">An agent that acts on behalf of ${esc(placeName(state))}, not any one person. It answers from public neighborhood data with sources, says "I don't know" when it doesn't, and points you to a person more often than it hands you a paragraph.</p>
-${vitalsHtml(signs)}
+${vitalLine(signs)}
 <div class="chat" id="log">
-  <div class="msg a"><span class="who a">Agent</span><span class="txt">Ask me what's happening, who to talk to, or how the ocean is today. If you want to add an event, fix something I got wrong, or propose something, say so. ${ready ? "" : "(The model isn't configured on this server yet, so I can only show sources.)"}</span></div>
+  <div class="msg a"><span class="who a">Agent</span><span class="txt">${ready ? "Ask me anything about the neighborhood. I'll tell you where I got it." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
+${ready ? `<div class="suggest" id="suggest">${SUGGESTIONS.map((q) => `<button type="button">${esc(q)}</button>`).join("")}</div>` : ""}
 <form class="ask" id="ask">
-  <textarea id="q" rows="1" placeholder="what's the pizza today?" aria-label="Your question" ${ready ? "" : "disabled"}></textarea>
+  <textarea id="q" rows="1" placeholder="Ask the neighborhood" aria-label="Your question" ${ready ? "" : "disabled"}></textarea>
   <button id="send" type="submit" ${ready ? "" : "disabled"}>Ask</button>
 </form>
-<p class="standing">Answers cite their sources. Asks become public pull requests a steward reviews. Nothing you type is kept after the answer; this conversation lives only in your browser tab. <a href="/about">What this is</a> · <a href="/sources">What it reads</a> · <a href="/correct">How to correct it</a></p>
-<script>${state.agent ? "" : "/* model not configured */"}</script>
 <script src="/chat.js" defer></script>`;
   return shell(state, "/", "Ask", body);
 }
