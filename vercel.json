@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci --no-audit --no-fund",
+  "buildCommand": "echo 'Vercel bundles api/index.ts itself; no build step'",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": { "api/index.ts": { "maxDuration": 60 } }
 }
