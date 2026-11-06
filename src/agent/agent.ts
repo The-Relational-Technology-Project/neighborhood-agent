@@ -2,7 +2,7 @@
  * The agent loop: Messages API with tool use, streamed. Session state lives on the client;
  * the server receives the whole conversation each turn and keeps nothing after responding.
  */
-import Anthropic from "@anthropic-ai/sdk";
+import { Anthropic } from "@anthropic-ai/sdk/client";
 import type { Config } from "../config.js";
 import { buildSystem } from "./prompt.js";
 import { runTool, toolDefinitions, type ToolContext } from "./tools.js";

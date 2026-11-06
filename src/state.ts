@@ -2,7 +2,7 @@
  * Process-wide state: the loaded data repo, the search index, source statuses, and the services.
  * Rebuilds the index on a schedule and whenever the data repo's main moves (poll or webhook).
  */
-import Anthropic from "@anthropic-ai/sdk";
+import { Anthropic } from "@anthropic-ai/sdk/client";
 import { Agent } from "./agent/agent.js";
 import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";

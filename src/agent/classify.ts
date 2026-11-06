@@ -3,7 +3,7 @@
  * a topic from a fixed list, whether the answer pointed to a person or group, whether it said
  * "I don't know". The result is three fields; the messages are not kept.
  */
-import Anthropic from "@anthropic-ai/sdk";
+import { Anthropic } from "@anthropic-ai/sdk/client";
 import { TOPICS } from "./questionlog.js";
 
 export interface Classification { topic: string; referral: boolean; dont_know: boolean }

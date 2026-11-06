@@ -2,7 +2,7 @@
  * The four tools the model can call. None of them touch GitHub. draft_pr returns content; the app
  * opens the PR only after the neighbor taps yes.
  */
-import type Anthropic from "@anthropic-ai/sdk";
+import type { Anthropic } from "@anthropic-ai/sdk/client";
 import type { SearchIndex } from "../data/index.js";
 import type { DataRepo, NRecord, RecordKind } from "../data/types.js";
 import { formatVitals, getVitalSigns } from "../vitals/index.js";
