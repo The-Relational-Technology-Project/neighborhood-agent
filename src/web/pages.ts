@@ -208,7 +208,7 @@ ${state.statuses.some((x) => x.error || x.skipped) ? `<h2>Sources needing attent
 <tr><td>Today's budget</td><td>$${st.spent.toFixed(2)} of $${st.limit.toFixed(2)}</td></tr>
 <tr><td>Data repo</td><td><a href="${esc(repo)}">${esc((st.sha ?? "").slice(0, 7) || "local")}</a>, refreshed ${esc(st.built?.slice(0, 16).replace("T", " ") ?? "never")} UTC</td></tr>
 </table>
-${!st.github || !st.email ? `<p class="note">${!st.email ? "Turn on email: set RESEND_API_KEY and EMAIL_FROM (an address on a domain verified in Resend) in Vercel. Recipients come from STEWARDS.md, or STEWARD_EMAILS. " : ""}${!st.github ? "Connect GitHub: create a GitHub App with Contents, Pull requests, and Issues read/write, install it on the data repo, and set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY." : ""}</p>` : ""}
+${!st.github || !st.email ? `<p class="note">${!st.email ? "Turn on email: set RESEND_API_KEY in Vercel. Mail goes from knowy@relationaltechproject.org (change with EMAIL_FROM) to the addresses in STEWARDS.md (or STEWARD_EMAILS). " : ""}${!st.github ? "Connect GitHub: create a GitHub App with Contents, Pull requests, and Issues read/write, install it on the data repo, and set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY." : ""}</p>` : ""}
 <h2>What people asked this week</h2>
 ${rows.length ? `<table class="stack"><tr><th>Topic</th><th>Asked</th><th>Pointed to a person or group</th><th>Didn't know</th></tr>${rows.map(([t, r]) => `<tr><td>${esc(t)}</td><td>${r.asked}</td><td>${r.referral}</td><td>${r.dont_know}</td></tr>`).join("")}</table><p><small>${esc(st.week)}, counted by this server since it last started. Weekly totals go to log/questions.md.</small></p>` : "<p>No questions counted yet this week on this server.</p>"}
 <h2>Bringing in a suggested source</h2>

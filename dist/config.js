@@ -44,7 +44,7 @@ export function loadConfig() {
         siteUrl: env("SITE_URL"),
         email: {
             apiKey: env("RESEND_API_KEY"),
-            from: env("EMAIL_FROM", "Knowy Plover <knowy@knowy.org>"),
+            from: env("EMAIL_FROM", "Knowy Plover <knowy@relationaltechproject.org>"),
             to: (env("STEWARD_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
         },
         anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
