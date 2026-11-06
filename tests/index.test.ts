@@ -23,7 +23,8 @@ describe("index over the fixture repo", () => {
     expect(byId.repo.records).toBeGreaterThan(5);
     expect(byId["town-calendar"].records).toBeGreaterThan(5);
     expect(byId["town-calendar"].error).toBeUndefined();
-    expect(index.size).toBe(byId.repo.records + byId["town-calendar"].records);
+    expect(byId["elsewhere-recs"].records).toBe(2);
+    expect(index.size).toBe(byId.repo.records + byId["town-calendar"].records + byId["elsewhere-recs"].records);
   });
 
   it("finds the tool library for 'sharing tools' and the market for 'market'", async () => {
@@ -44,6 +45,19 @@ describe("index over the fixture repo", () => {
     const store = index.search("corner store", { kinds: ["place"] })[0];
     expect(store.corrections).toBeUndefined();
     expect(store.text).toContain("verified 2026-01-15");
+  });
+
+  it("indexes recommendations with vouches, freshness, and a withheld contact", async () => {
+    const { index } = await loadFixture();
+    const hits = index.search("plumber", { kinds: ["recommendation"] });
+    expect(hits.map((h) => h.title)).toEqual(expect.arrayContaining(["Sam", "River Plumbing Co"]));
+    const sam = hits.find((h) => h.title === "Sam")!;
+    expect(sam.source.name).toBe("Elsewhere Neighbors Recs (as of 2026-01-20)");
+    expect(sam.text).toContain("Vouched for by 3 neighbors in the Elsewhere list, Nov '25.");
+    expect(sam.text).toContain("ask in Elsewhere Neighbors for their number. Do not supply one.");
+    const river = hits.find((h) => h.title === "River Plumbing Co")!;
+    expect(river.text).toContain("Vouched for by 1 neighbor");
+    expect(river.url).toBe("https://riverplumbing.example/");
   });
 
   it("matches corrections by record id prefix too", () => {

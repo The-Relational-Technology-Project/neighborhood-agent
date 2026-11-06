@@ -189,6 +189,19 @@ export async function loadRepo(root) {
         note: d.body || undefined,
         file: d.file,
     }));
+    const recs = [];
+    try {
+        for (const name of (await fs.readdir(path.join(root, "recs"))).filter((n) => /\.ya?ml$/.test(n)).sort()) {
+            try {
+                const doc = YAML.parse(await readText(path.join(root, "recs", name)));
+                recs.push({ file: `recs/${name}`, meta: doc?.meta ?? {}, recs: Array.isArray(doc?.recs) ? doc.recs : [] });
+            }
+            catch (err) {
+                console.warn(`[repo] could not parse recs/${name}:`, err.message);
+            }
+        }
+    }
+    catch { /* no recs folder */ }
     return {
         root,
         sha: await repoSha(root),
@@ -205,6 +218,7 @@ export async function loadRepo(root) {
         proposals: await readDocs(path.join(root, "proposals")),
         corrections,
         archive: await readDocs(path.join(root, "archive")),
+        recs,
         questionLogMd: await readText(path.join(root, "log", "questions.md")),
         settings: parseSettings(placeMd),
     };

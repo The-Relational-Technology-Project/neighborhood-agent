@@ -21,6 +21,8 @@ describe("system prompt", () => {
     expect(blocks[0].text).toContain("Riverbank plovers");
     expect(blocks[0].text).toContain("Bird Club of Elsewhere");
     expect(blocks[0].text).toContain("Elsewhere Tool Library");
+    expect(blocks[0].text).toContain("# Recommendation sources");
+    expect(blocks[0].text).toContain("Elsewhere Neighbors Recs, as of 2026-01-20: 2 recs.");
     expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
     expect(blocks[1].text).toMatch(/^Today is \d{4}-\d{2}-\d{2}/);
     expect(blocks[1].cache_control).toBeUndefined();

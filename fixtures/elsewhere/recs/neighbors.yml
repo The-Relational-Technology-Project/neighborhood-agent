@@ -1,0 +1,22 @@
+meta:
+  title: Elsewhere Neighbors Recs
+  as_of: "2026-01-20"
+  caveat: Neighbors' experiences, not vetted endorsements.
+  how_to_reach: Ask in the Elsewhere list for numbers that aren't here.
+recs:
+  - name: Sam
+    category: Home repairs & trades
+    subcategory: Plumbers
+    what: Fixed a leak on a Sunday; fair price.
+    vouches: 3
+    when: Nov '25
+    contact: ask in Elsewhere Neighbors
+  - name: River Plumbing Co
+    category: Home repairs & trades
+    subcategory: Plumbers
+    what: Water heater replacement.
+    vouches: 1
+    when: Jan '26
+    links:
+      - label: riverplumbing.example
+        url: https://riverplumbing.example/

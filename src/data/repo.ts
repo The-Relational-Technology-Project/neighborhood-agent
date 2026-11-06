@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import YAML from "yaml";
 import { parseFrontmatter } from "./frontmatter.js";
-import type { Constituent, Correction, DataRepo, FrontmatterDoc, Person, Place, Resource, SourceDef } from "./types.js";
+import type { Constituent, Correction, DataRepo, FrontmatterDoc, Person, Place, RecsFile, Resource, SourceDef } from "./types.js";
 
 const exec = promisify(execFile);
 
@@ -181,6 +181,18 @@ export async function loadRepo(root: string): Promise<DataRepo> {
     file: d.file,
   }));
 
+  const recs: RecsFile[] = [];
+  try {
+    for (const name of (await fs.readdir(path.join(root, "recs"))).filter((n) => /\.ya?ml$/.test(n)).sort()) {
+      try {
+        const doc = YAML.parse(await readText(path.join(root, "recs", name))) as Partial<RecsFile> | null;
+        recs.push({ file: `recs/${name}`, meta: doc?.meta ?? {}, recs: Array.isArray(doc?.recs) ? doc!.recs! : [] });
+      } catch (err) {
+        console.warn(`[repo] could not parse recs/${name}:`, (err as Error).message);
+      }
+    }
+  } catch { /* no recs folder */ }
+
   return {
     root,
     sha: await repoSha(root),
@@ -197,6 +209,7 @@ export async function loadRepo(root: string): Promise<DataRepo> {
     proposals: await readDocs(path.join(root, "proposals")),
     corrections,
     archive: await readDocs(path.join(root, "archive")),
+    recs,
     questionLogMd: await readText(path.join(root, "log", "questions.md")),
     settings: parseSettings(placeMd),
   };

@@ -16,13 +16,13 @@ export interface ToolContext {
   onDraft?: (d: Draft) => void;
 }
 
-const KINDS: RecordKind[] = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent"];
+const KINDS: RecordKind[] = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation"];
 
 export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: "search_data",
     description:
-      "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, open proposals, merged corrections, news, constituents. Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
+      "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), open proposals, merged corrections, news, constituents. Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
     input_schema: {
       type: "object",
       properties: {
@@ -47,7 +47,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: "lookup_person_or_place",
     description:
-      "Look up a public point of contact (person or org from people.yml), a place from places.yml, a resource from resources.yml, or a constituent by name or topic. Returns exact repo entries including hours, hours source, and last verified date. Use this before saying hours or naming anyone.",
+      "Look up a public point of contact (person or org from people.yml), a place from places.yml, a resource from resources.yml, a neighbor recommendation, or a constituent by name or topic. Returns exact repo entries including hours, hours source, and last verified date. Use this before saying hours or naming anyone.",
     input_schema: {
       type: "object",
       properties: { name: { type: "string", description: "A name or a topic, e.g. 'Black Bird', 'coyotes', 'tool library', 'beach cleanups'." } },
@@ -111,7 +111,7 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
     }
     case "lookup_person_or_place": {
       const q = String(args.name ?? "");
-      const hits = ctx.index.search(q, { kinds: ["person", "place", "resource", "constituent", "group"], limit: 8 });
+      const hits = ctx.index.search(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
       if (!hits.length) return `Nothing in the repo matches "${q}". Say you don't know; do not invent hours or contacts.`;
       return hits.map(formatRecord).join("\n\n");
     }

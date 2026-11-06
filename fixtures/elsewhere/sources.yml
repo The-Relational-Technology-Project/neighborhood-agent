@@ -16,6 +16,16 @@ sources:
     config:
       ics_url: file:fixtures/calendar.ics
       horizon_days: 400
+  - id: elsewhere-recs
+    name: Elsewhere Neighbors Recs
+    url: https://example.org/elsewhere-repo/recs/neighbors.yml
+    type: repo-file
+    adapter: recs
+    refresh: 5m
+    status: live
+    config:
+      file: recs/neighbors.yml
+      group: the Elsewhere list
   - id: plover-season
     name: Riverbank plover season
     url: https://example.org/plovers

@@ -65,7 +65,7 @@ export async function loadSources(repo: DataRepo, cacheDir: string, opts: { forc
 
     let raw: unknown;
     let usedCache = false;
-    if (!opts.force && adapter.id !== "repo" && cache.isFresh(cached)) {
+    if (!opts.force && !["repo", "recs"].includes(adapter.id) && cache.isFresh(cached)) {
       raw = cached!.raw;
       usedCache = true;
     } else {
@@ -97,7 +97,7 @@ export async function loadSources(repo: DataRepo, cacheDir: string, opts: { forc
         await logInjection(cacheDir, { source: source.id, record: r.id, match: hit });
       }
     }
-    if (!usedCache && adapter.id !== "repo") await cache.set({ source_id: source.id, fetched_at: fetchedAt, ttl_ms: ttl, raw, records: recs });
+    if (!usedCache && !["repo", "recs"].includes(adapter.id)) await cache.set({ source_id: source.id, fetched_at: fetchedAt, ttl_ms: ttl, raw, records: recs });
     status.fetched_at = at;
     status.records = recs.length;
     records.push(...recs);

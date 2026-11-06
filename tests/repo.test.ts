@@ -8,7 +8,10 @@ describe("data repo loading", () => {
   it("reads the fixture repo's files into one structure", async () => {
     const repo = await loadRepo(FIXTURE);
     expect(repo.placeMd).toContain("Elsewhere");
-    expect(repo.sources.map((s) => s.id)).toEqual(["repo", "town-calendar", "plover-season"]);
+    expect(repo.sources.map((s) => s.id)).toEqual(["repo", "town-calendar", "elsewhere-recs", "plover-season"]);
+    expect(repo.recs).toHaveLength(1);
+    expect(repo.recs[0]).toMatchObject({ file: "recs/neighbors.yml", meta: { title: "Elsewhere Neighbors Recs" } });
+    expect(repo.recs[0].recs.map((r) => r.name)).toEqual(["Sam", "River Plumbing Co"]);
     expect(repo.constituents.map((c) => c.slug)).toEqual(["plovers", "river"]);
     expect(repo.constituents.find((c) => c.slug === "plovers")?.advocates[0]).toContain("Bird Club");
     expect(repo.people[0].name).toBe("Pat Example");
@@ -33,6 +36,24 @@ describe("data repo loading", () => {
     const back = parseFrontmatter(text);
     expect(back.data).toEqual({ title: "Block party", date: "2026-12-06", start: "14:00" });
     expect(back.body.trim()).toBe("Bring a chair.");
+  });
+
+  it("keeps personal contacts out of the real Outer Sunset recs", async () => {
+    try { await fs.access(OUTER_SUNSET); } catch { return; }
+    const repo = await loadRepo(OUTER_SUNSET);
+    const recs = repo.recs.flatMap((f) => f.recs);
+    expect(recs.length).toBeGreaterThan(200);
+    const phone = /\(?\b\d{3}\)?[\s.-]*\d{3}-\d{4}\b/;
+    const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+    for (const r of recs) {
+      expect(r.what ?? "", `${r.name} has a personal webmail address`).not.toMatch(/@(gmail|yahoo|hotmail|icloud|outlook|aol)\./i);
+      // A business-domain email (patricia@defontelaw.com) marks a public business; webmail never does.
+      const businessEmail = (r.what ?? "").match(email) && !/@(gmail|yahoo|hotmail|icloud|outlook|aol)\./i.test(r.what ?? "");
+      if (!r.links?.length && !businessEmail) {
+        expect(r.what ?? "", `${r.name} has no public link but carries a phone`).not.toMatch(phone);
+        expect(r.what ?? "", `${r.name} has no public link but carries an email`).not.toMatch(email);
+      }
+    }
   });
 
   it("loads the real Outer Sunset repo when present", async () => {

@@ -9,7 +9,8 @@ export type RecordKind =
   | "correction"
   | "archive-note"
   | "note"
-  | "constituent";
+  | "constituent"
+  | "recommendation";
 
 export interface SourceRef {
   id: string;
@@ -115,6 +116,27 @@ export interface Resource {
   source?: string;
 }
 
+export interface RecLink { label: string; url: string }
+
+export interface Rec {
+  name: string;
+  category?: string;
+  subcategory?: string;
+  kind?: string;
+  what?: string;
+  vouches?: number | string;
+  when?: string;
+  links?: RecLink[];
+  contact?: string;
+  from_earlier_knowledge_base?: boolean;
+}
+
+export interface RecsFile {
+  file: string;
+  meta: { title?: string; from?: string; as_of?: string; caveat?: string; privacy?: string; how_to_reach?: string; how_to_read?: string; highlights?: string[] };
+  recs: Rec[];
+}
+
 export interface DataRepo {
   root: string;
   sha?: string;
@@ -131,6 +153,8 @@ export interface DataRepo {
   proposals: FrontmatterDoc[];
   corrections: Correction[];
   archive: FrontmatterDoc[];
+  /** Neighbors' recommendations, one file per source under recs/. */
+  recs: RecsFile[];
   questionLogMd: string;
   /** Settings parsed from place.md (`key: value` lines at the end). */
   settings: Record<string, string>;

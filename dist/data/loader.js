@@ -41,7 +41,7 @@ export async function loadSources(repo, cacheDir, opts = {}) {
         const ctx = { repo, source, fetchedAt, secret: (name) => (name ? process.env[name] : undefined), http: httpFetch };
         let raw;
         let usedCache = false;
-        if (!opts.force && adapter.id !== "repo" && cache.isFresh(cached)) {
+        if (!opts.force && !["repo", "recs"].includes(adapter.id) && cache.isFresh(cached)) {
             raw = cached.raw;
             usedCache = true;
         }
@@ -77,7 +77,7 @@ export async function loadSources(repo, cacheDir, opts = {}) {
                 await logInjection(cacheDir, { source: source.id, record: r.id, match: hit });
             }
         }
-        if (!usedCache && adapter.id !== "repo")
+        if (!usedCache && !["repo", "recs"].includes(adapter.id))
             await cache.set({ source_id: source.id, fetched_at: fetchedAt, ttl_ms: ttl, raw, records: recs });
         status.fetched_at = at;
         status.records = recs.length;
