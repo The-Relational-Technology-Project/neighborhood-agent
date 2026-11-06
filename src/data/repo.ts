@@ -108,17 +108,21 @@ async function ghGet(url: string): Promise<Response> {
 }
 
 /**
- * Fetch a public repo's tree at a branch through the GitHub API: one API call for the tree (the
- * tree sha is the version), then raw files, which are not API-rate-limited. Skips when unchanged.
+ * Fetch a public repo at a branch through the GitHub API. One call to learn the branch's commit;
+ * when it moved, one more for the tree, then raw files pinned to that commit (raw.githubusercontent
+ * caches by branch name for minutes, so a branch URL can serve stale files right after a merge).
  * Anonymous API calls are limited to 60 an hour per IP; set GITHUB_TOKEN on shared hosts.
  */
 export async function fetchRepoViaGithubApi(ownerRepo: string, branch: string, root: string): Promise<string> {
-  const treeRes = await ghGet(`https://api.github.com/repos/${ownerRepo}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
-  if (!treeRes.ok) throw new Error(`GitHub tree ${ownerRepo}@${branch}: ${treeRes.status}${treeRes.status === 403 ? " (rate limited; set GITHUB_TOKEN)" : ""}`);
-  const body = (await treeRes.json()) as { sha: string; tree: Array<{ path: string; type: string; size?: number }> };
-  const sha = body.sha;
+  const commitRes = await ghGet(`https://api.github.com/repos/${ownerRepo}/commits/${encodeURIComponent(branch)}`);
+  if (!commitRes.ok) throw new Error(`GitHub ${ownerRepo}@${branch}: ${commitRes.status}${commitRes.status === 403 ? " (rate limited; set GITHUB_TOKEN)" : ""}`);
+  const commit = (await commitRes.json()) as { sha: string; commit: { tree: { sha: string } } };
+  const sha = commit.sha;
   const shaFile = path.join(root, ".sha");
   try { if ((await fs.readFile(shaFile, "utf8")).trim() === sha) return sha; } catch { /* first fetch */ }
+  const treeRes = await ghGet(`https://api.github.com/repos/${ownerRepo}/git/trees/${commit.commit.tree.sha}?recursive=1`);
+  if (!treeRes.ok) throw new Error(`GitHub tree ${ownerRepo}@${sha.slice(0, 7)}: ${treeRes.status}`);
+  const body = (await treeRes.json()) as { tree: Array<{ path: string; type: string; size?: number }> };
   const files = body.tree.filter((t) => t.type === "blob" && (t.size ?? 0) < 2_000_000 && !t.path.startsWith(".git"));
   const fresh = `${root}.next`;
   await fs.rm(fresh, { recursive: true, force: true });
@@ -126,7 +130,7 @@ export async function fetchRepoViaGithubApi(ownerRepo: string, branch: string, r
   const queue = [...files];
   const worker = async () => {
     for (let f = queue.shift(); f; f = queue.shift()) {
-      const res = await fetch(`https://raw.githubusercontent.com/${ownerRepo}/${encodeURIComponent(branch)}/${f.path}`, { headers: { "User-Agent": "neighborhood-agent" }, signal: AbortSignal.timeout(20_000) });
+      const res = await fetch(`https://raw.githubusercontent.com/${ownerRepo}/${sha}/${f.path.split("/").map(encodeURIComponent).join("/")}`, { headers: { "User-Agent": "neighborhood-agent" }, signal: AbortSignal.timeout(20_000) });
       if (!res.ok) throw new Error(`raw ${f.path}: ${res.status}`);
       const dest = path.join(fresh, f.path);
       await fs.mkdir(path.dirname(dest), { recursive: true });
