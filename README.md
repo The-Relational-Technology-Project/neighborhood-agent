@@ -60,7 +60,7 @@ Other commands: `npm run vitals`, `npx tsx src/cli.ts search "words"`, `npx tsx 
 
 ## Deploy
 
-**Vercel, the quickest way to try the prototype.** Import the repo at vercel.com/new (or `npx vercel`), add the environment variables from `.env.example` (at least `DATA_REPO`, `ANTHROPIC_API_KEY`, and the two anon keys), deploy. `vercel.json` routes everything to one function. On Vercel the data repo is fetched through the GitHub API instead of git, the source cache lives in the function's `/tmp`, the index is rebuilt on the first request after a cold start and refreshed in the background every `REPO_POLL_MINUTES`, and "Yes, open the PR" carries a signed copy of the draft so it works across instances (set `DRAFT_SECRET` to any long random string, or it is derived from the API key). Also set `GITHUB_TOKEN` to a read-only token: the data repo is read through the GitHub API, and anonymous calls share a 60-an-hour limit per IP with every other tenant on that IP. Two things don't persist across instances there: the daily budget counter and the question log counts, so each warm instance keeps its own. Fine for a trial, not for a long-running deployment.
+**Vercel, the quickest way to try the prototype.** Import the repo at vercel.com/new (or `npx vercel`), add the environment variables from `.env.example` (at least `DATA_REPO`, `ANTHROPIC_API_KEY`, and the two anon keys), deploy. `vercel.json` routes everything to one function, `api/index.js`, which imports the compiled `dist/`. `dist/` is committed for that reason: run `npm run build` and commit it along with any change to `src/` (the `prepare` script does this on `npm install`, and `npm test` fails if it is stale). On Vercel the data repo is fetched through the GitHub API instead of git, the source cache lives in the function's `/tmp`, the index is rebuilt on the first request after a cold start and refreshed in the background every `REPO_POLL_MINUTES`, and "Yes, open the PR" carries a signed copy of the draft so it works across instances (set `DRAFT_SECRET` to any long random string, or it is derived from the API key). Also set `GITHUB_TOKEN` to a read-only token: the data repo is read through the GitHub API, and anonymous calls share a 60-an-hour limit per IP with every other tenant on that IP. Two things don't persist across instances there: the daily budget counter and the question log counts, so each warm instance keeps its own. Fine for a trial, not for a long-running deployment.
 
 **Fly or a VPS, for running it for real.** One step on Fly: `fly launch --copy-config --yes`, then `fly secrets set` for each secret in `.env.example`, then `fly volumes create agent_cache --size 1`. The Dockerfile works anywhere that runs a container (a small VPS, Railway, Render). The budget, question log, and cache sit on the volume.
 
@@ -105,7 +105,8 @@ src/
   state.ts             repo + index + services, rebuilt on a timer or webhook
   app.ts               Hono routes
   server.ts            Node entry (long-running server with a rebuild timer)
-api/index.ts           Vercel entry
+api/index.js           Vercel entry (imports the committed dist/)
+dist/                  compiled output, committed for Vercel
   cli.ts               nagent
   data/                repo loader, record types, cache, search index, source loader
   adapters/            repo, supabase-rest, ics, llm-txt, neighborhood-api, registry
