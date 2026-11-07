@@ -9,7 +9,7 @@ import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
 import { config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
-import { loadSources } from "./data/loader.js";
+import { embedAll, loadSources } from "./data/loader.js";
 import { makeEmbedder } from "./search/embed.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import { GitHub } from "./github/app.js";
@@ -68,11 +68,19 @@ export class AppState {
             catch {
                 this.brand = new Set();
             }
-            const { index, statuses, embedding } = await loadSources(this.repo, this.cfg.cacheDir, { ...opts, embedder: this.embedder });
+            const { index, statuses } = await loadSources(this.repo, this.cfg.cacheDir, opts);
             this.index = index;
             this.statuses = statuses;
-            this.embedding = embedding;
             this.lastBuild = new Date().toISOString();
+            // Vectors attach to the live index as they arrive; words-only search works meanwhile. On a
+            // serverless host the first page must not wait on an embedding call, so it runs in the
+            // background there (and may be cut short; the next build picks up where the cache left off).
+            const embedding = embedAll(index, this.cfg.cacheDir, this.embedder).then((st) => { if (this.index === index)
+                this.embedding = st; return st; });
+            if (process.env.VERCEL)
+                embedding.catch((err) => console.warn("[search] embedding failed:", err.message));
+            else
+                await embedding;
         })().finally(() => { this.building = undefined; });
         return this.building;
     }

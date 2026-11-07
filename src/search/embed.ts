@@ -99,6 +99,8 @@ interface HttpOptions {
   inputType: boolean;
   minSimilarity: number;
   batch?: number;
+  /** How many tries a rate-limited or failing call gets before the build gives up on it. */
+  maxAttempts?: number;
   fetchFn?: typeof fetch;
 }
 
@@ -107,11 +109,13 @@ export class HttpEmbedder implements Embedder {
   readonly id: string;
   readonly minSimilarity: number;
   private readonly batch: number;
+  private readonly maxAttempts: number;
   private readonly fetchFn: typeof fetch;
   constructor(private readonly o: HttpOptions) {
     this.id = o.id;
     this.minSimilarity = o.minSimilarity;
-    this.batch = o.batch ?? 96;
+    this.batch = o.batch ?? 48;
+    this.maxAttempts = o.maxAttempts ?? 6;
     this.fetchFn = o.fetchFn ?? fetch;
   }
 
@@ -140,7 +144,14 @@ export class HttpEmbedder implements Embedder {
       throw new Error(`embeddings: ${(err as Error).message}`);
     }
     if (res.status === 429 || res.status >= 500) {
-      if (attempt < 2) { await sleep(1000 * 2 ** attempt); return this.call(input, kind, attempt + 1); }
+      // Rate limited or down: wait what the server asks for, else back off up to a minute, and keep
+      // trying for a while. A fresh account with no payment method gets 3 requests a minute.
+      if (attempt < this.maxAttempts) {
+        const after = Number(res.headers.get("retry-after"));
+        const wait = Number.isFinite(after) && after > 0 ? Math.min(90_000, after * 1000) : Math.min(60_000, 5_000 * 2 ** attempt);
+        await sleep(wait);
+        return this.call(input, kind, attempt + 1);
+      }
     }
     if (!res.ok) throw new Error(`embeddings: ${this.o.url} answered ${res.status} ${(await res.text()).slice(0, 200)}`);
     const json = (await res.json()) as { data?: Array<{ index?: number; embedding: number[] }> };

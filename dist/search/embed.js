@@ -78,12 +78,14 @@ export class HttpEmbedder {
     id;
     minSimilarity;
     batch;
+    maxAttempts;
     fetchFn;
     constructor(o) {
         this.o = o;
         this.id = o.id;
         this.minSimilarity = o.minSimilarity;
-        this.batch = o.batch ?? 96;
+        this.batch = o.batch ?? 48;
+        this.maxAttempts = o.maxAttempts ?? 6;
         this.fetchFn = o.fetchFn ?? fetch;
     }
     async embed(texts, kind) {
@@ -115,8 +117,12 @@ export class HttpEmbedder {
             throw new Error(`embeddings: ${err.message}`);
         }
         if (res.status === 429 || res.status >= 500) {
-            if (attempt < 2) {
-                await sleep(1000 * 2 ** attempt);
+            // Rate limited or down: wait what the server asks for, else back off up to a minute, and keep
+            // trying for a while. A fresh account with no payment method gets 3 requests a minute.
+            if (attempt < this.maxAttempts) {
+                const after = Number(res.headers.get("retry-after"));
+                const wait = Number.isFinite(after) && after > 0 ? Math.min(90_000, after * 1000) : Math.min(60_000, 5_000 * 2 ** attempt);
+                await sleep(wait);
                 return this.call(input, kind, attempt + 1);
             }
         }

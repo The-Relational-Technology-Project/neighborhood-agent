@@ -82,6 +82,25 @@ describe("http embedder", () => {
     expect(out[0][0]).toBeCloseTo(0.6, 5);
   });
 
+  it("waits out a rate limit, honoring Retry-After, then succeeds", async () => {
+    let calls = 0;
+    const fetchFn = (async () => {
+      calls++;
+      if (calls < 3) return new Response("slow down", { status: 429, headers: { "retry-after": "0.01" } });
+      return new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const e = new HttpEmbedder({ id: "t", url: "https://embed.test", model: "m", apiKey: "k", inputType: false, minSimilarity: 0.4, fetchFn });
+    const out = await e.embed(["a"], "document");
+    expect(calls).toBe(3);
+    expect(Array.from(out[0])).toEqual([1, 0]);
+  });
+
+  it("gives up on a rate limit after its attempts and says so", async () => {
+    const fetchFn = (async () => new Response("slow down", { status: 429, headers: { "retry-after": "0.01" } })) as unknown as typeof fetch;
+    const e = new HttpEmbedder({ id: "t", url: "https://embed.test", model: "m", apiKey: "k", inputType: false, minSimilarity: 0.4, fetchFn, maxAttempts: 2 });
+    await expect(e.embed(["a"], "document")).rejects.toThrow(/429/);
+  });
+
   it("surfaces an error status instead of inventing vectors", async () => {
     const fetchFn = (async () => new Response("nope", { status: 401 })) as unknown as typeof fetch;
     const e = new HttpEmbedder({ id: "t", url: "https://embed.test", model: "m", apiKey: "k", inputType: false, minSimilarity: 0.4, fetchFn });
