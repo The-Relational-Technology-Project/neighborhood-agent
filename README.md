@@ -73,6 +73,12 @@ Create a GitHub App on the org (Settings → Developer settings → GitHub Apps)
 
 Without the app configured, the agent still answers; the "Yes, open the PR" button falls back to a prefilled "create file" link on GitHub, and the contact page shows the stewards' email.
 
+## Knowy by email
+
+Neighbors can write to the agent instead of opening the site. Resend receives mail on the domain and calls `POST /api/email/inbound`; the agent answers the same way the chat does and replies from `EMAIL_FROM` with sources flattened to plain text. The thread is the only memory: a reply's quoted text is passed back as context, nothing is stored. Anything Knowy drafts (an event, a correction) comes back as a link to `/confirm`, where the neighbor sees the same card and "Yes, send it" button the chat shows. Bounces, auto-replies, list mail, our own address, and senders failing both SPF and DKIM are ignored; one sender gets six answers an hour; the daily budget applies. Code: `src/channels/email.ts`.
+
+Setup, once: in Resend, enable receiving on the sending domain and add the MX record it shows (a subdomain if the root already has mail); create a webhook for `email.received` pointing at `https://<site>/api/email/inbound` and copy its signing secret; set `EMAIL_INBOX` and `RESEND_WEBHOOK_SECRET`.
+
 ## The weekly run: what the agent does in the background
 
 Once a week (`.github/workflows/weekly.yml`, Mondays 7am Pacific, free on a public repo; or `npm run weekly`), the agent does four quiet jobs and sends one email (`DIGEST_EMAILS`, else the stewards). It proposes; stewards decide. Code: `src/jobs/`.

@@ -14,7 +14,8 @@ import { getVitalSigns } from "./vitals/index.js";
 import { handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
-import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage, stewardsPage } from "./web/pages.js";
+import { aboutPage, confirmPage, contactPage, correctPage, homePage, placeName, proposalsPage, siteName, sourcesPage, stewardsPage } from "./web/pages.js";
+import { handleInbound, verifySvix } from "./channels/email.js";
 export function createApp(state) {
     const app = new Hono();
     // Serverless hosts: make sure the index exists, and refresh it in the background when stale.
@@ -183,6 +184,50 @@ export function createApp(state) {
             return c.json({ ok: true });
         }
         return c.json({ error: "I couldn't reach the stewards just now. Try again in a little while, or write to them on the contact page." });
+    });
+    /** A draft that reached the neighbor outside the chat (by email): show it, let them send it. */
+    app.get("/confirm", (c) => {
+        const draft = verifyDraft(c.req.query("token"));
+        return c.html(confirmPage(state, draft, { token: c.req.query("token") }), draft ? 200 : 404);
+    });
+    app.post("/confirm", async (c) => {
+        let token;
+        try {
+            token = String((await c.req.parseBody()).token ?? "");
+        }
+        catch {
+            token = undefined;
+        }
+        const draft = verifyDraft(token);
+        if (!draft)
+            return c.html(confirmPage(state, undefined, {}), 404);
+        if (!state.limiter.allow("confirm:" + clientIp(c)))
+            return c.html(confirmPage(state, draft, { token, error: "Too many in a row. Try again in a few minutes." }), 429);
+        const ok = await sendToStewards(draft);
+        return c.html(confirmPage(state, draft, { token, sent: ok, error: ok ? undefined : "I couldn't reach the stewards just now. Try again in a little while, or write to them on the contact page." }));
+    });
+    /** Resend calls this when mail arrives at the inbox address. Knowy answers by email. */
+    app.post("/api/email/inbound", async (c) => {
+        const body = await c.req.text();
+        if (!verifySvix(state.cfg.email.webhookSecret, body, { id: c.req.header("svix-id"), timestamp: c.req.header("svix-timestamp"), signature: c.req.header("svix-signature") }))
+            return c.json({ error: "bad signature" }, 401);
+        let event;
+        try {
+            event = JSON.parse(body);
+        }
+        catch {
+            return c.json({ error: "bad json" }, 400);
+        }
+        try {
+            const r = await handleInbound(state, event, c.req.header("svix-id"), { base: siteBase(c), siteName: siteName(state), placeName: placeName(state) });
+            if (r.status !== "ignored")
+                console.log(`[email] ${r.status}${r.detail ? ` (${r.detail})` : ""}`);
+            return c.json({ ok: true, status: r.status });
+        }
+        catch (err) {
+            console.error("[email]", err);
+            return c.json({ ok: false, error: "could not answer" }, 500);
+        }
     });
     /** The sources page form: suggest a link or upload a file for Knowy to read. */
     app.post("/suggest", async (c) => {

@@ -1,5 +1,5 @@
 import { esc, layout, md } from "./html.js";
-function siteName(state) {
+export function siteName(state) {
     const m = state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/);
     return m?.[1] ?? "Neighborhood agent";
 }
@@ -10,7 +10,7 @@ function tagline(state) {
 function aboutLine(state) {
     return state.repo.placeMd.match(/^About:\s*(.+?)\s*$/m)?.[1];
 }
-function placeName(state) {
+export function placeName(state) {
     const m = state.repo.placeMd.match(/^#\s+(.+)$/m);
     return m?.[1] ?? "this neighborhood";
 }
@@ -189,6 +189,18 @@ ${pending.length ? `<h2>On its way</h2><p>Sent by neighbors, waiting for a stewa
 <h2>Open proposals</h2>
 ${added || "<p>None yet. Yours could be the first.</p>"}`;
     return shell(state, "/proposals", "Proposals", body);
+}
+/** A draft Knowy wrote for a neighbor who reached it by email: the same card and button as the chat shows. */
+export function confirmPage(state, draft, o) {
+    if (!draft) {
+        return shell(state, "/confirm", "Not found", `<p class="stamp">Send to the stewards</p><h1>That link has expired</h1><p class="sub">Drafts last a while, not forever. Write to ${esc(siteName(state))} again and it will redraft it.</p>`);
+    }
+    const noun = { event: "an event", correction: "a correction", proposal: "a proposal", source: "a suggested source" }[draft.kind];
+    const card = `<div class="card">${draft.summary.map(([k, v]) => `<p><b class="k">${esc(k)}</b> ${esc(v)}</p>`).join("")}</div>`;
+    const body = o.sent
+        ? `<p class="stamp">Sent</p><h1>On its way</h1><p class="sub">A neighborhood steward will look it over before it's added. Once added, it's public. Thank you.</p>${card}`
+        : `<p class="stamp">Send to the stewards</p><h1>Here's ${noun} ${esc(siteName(state))} wrote up for you</h1><p class="sub">Nothing is sent until you tap the button. A steward looks it over before it's added; once added, it's public.</p>${card}${o.error ? `<p class="err">${esc(o.error)}</p>` : ""}<form method="post" action="/confirm"><input type="hidden" name="token" value="${esc(o.token ?? "")}"><button type="submit">Yes, send it</button></form>`;
+    return shell(state, "/confirm", "Send to the stewards", body);
 }
 export function correctPage(state, pending) {
     const body = `

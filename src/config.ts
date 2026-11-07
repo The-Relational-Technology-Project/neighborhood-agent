@@ -40,7 +40,7 @@ export interface Config {
     webhookSecret?: string;
   };
   siteUrl?: string;
-  email: { apiKey?: string; from: string; to: string[]; /** Who gets the weekly digest; defaults to the stewards. */ digestTo: string[] };
+  email: { apiKey?: string; from: string; to: string[]; /** Who gets the weekly digest; defaults to the stewards. */ digestTo: string[]; /** The address neighbors can write to; Resend receives it and POSTs to /api/email/inbound. */ inbox?: string; /** Signing secret of that Resend webhook. */ webhookSecret?: string };
   /** Operate without a model (CLI index/search still works). */
   anthropicConfigured: boolean;
   /** Semantic search. Voyage when VOYAGE_API_KEY is set, else off, unless EMBED_PROVIDER says otherwise. */
@@ -119,6 +119,8 @@ export function loadConfig(): Config {
       from: env("EMAIL_FROM", "Knowy Plover <knowy@relationaltechproject.org>")!,
       to: (env("STEWARD_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
       digestTo: (env("DIGEST_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+      inbox: env("EMAIL_INBOX"),
+      webhookSecret: env("RESEND_WEBHOOK_SECRET"),
     },
     anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
     embed: embedConfig(),

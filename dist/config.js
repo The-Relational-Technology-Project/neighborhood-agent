@@ -91,6 +91,8 @@ export function loadConfig() {
             from: env("EMAIL_FROM", "Knowy Plover <knowy@relationaltechproject.org>"),
             to: (env("STEWARD_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
             digestTo: (env("DIGEST_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+            inbox: env("EMAIL_INBOX"),
+            webhookSecret: env("RESEND_WEBHOOK_SECRET"),
         },
         anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
         embed: embedConfig(),
