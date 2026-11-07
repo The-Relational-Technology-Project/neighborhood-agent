@@ -90,7 +90,7 @@ export function shouldIgnore(m: ReceivedEmail, ownAddress: string): string | und
 export function toPlainText(md: string): string {
   return md
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, name: string, url: string) => (name.replace(/^https?:\/\//, "").replace(/\/$/, "") === url.replace(/^https?:\/\//, "").replace(/\/$/, "") ? url : `${name} (${url})`))
-    .replace(/^\s*[-*]\s+/gm, "- ").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[.,])/g, "$1$2").replace(/^#+\s*/gm, "")
+    .replace(/^[ \t]*[-*][ \t]+/gm, "- ").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[.,])/g, "$1$2").replace(/^#+\s*/gm, "")
     .replace(/\n{3,}/g, "\n\n").trim();
 }
 

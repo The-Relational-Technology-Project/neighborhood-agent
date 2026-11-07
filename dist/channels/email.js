@@ -86,7 +86,7 @@ export function shouldIgnore(m, ownAddress) {
 export function toPlainText(md) {
     return md
         .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, name, url) => (name.replace(/^https?:\/\//, "").replace(/\/$/, "") === url.replace(/^https?:\/\//, "").replace(/\/$/, "") ? url : `${name} (${url})`))
-        .replace(/^\s*[-*]\s+/gm, "- ").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[.,])/g, "$1$2").replace(/^#+\s*/gm, "")
+        .replace(/^[ \t]*[-*][ \t]+/gm, "- ").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[.,])/g, "$1$2").replace(/^#+\s*/gm, "")
         .replace(/\n{3,}/g, "\n\n").trim();
 }
 export function composeReply(answer, drafts, base, siteName, placeName) {
