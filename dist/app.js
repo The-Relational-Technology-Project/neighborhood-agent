@@ -24,7 +24,7 @@ export function createApp(state) {
         await next();
     });
     const clientIp = (c) => (c.req.header("x-forwarded-for") ?? "").split(",")[0].trim() || c.req.header("x-real-ip") || "local";
-    app.get("/health", (c) => c.json({ ok: true, records: state.index.size, built: state.lastBuild, model: state.agent ? state.cfg.model : null, budget: { spent: Number(state.budget.spent.toFixed(4)), limit: state.budget.limit } }));
+    app.get("/health", (c) => c.json({ ok: true, records: state.index.size, built: state.lastBuild, search: { semantic: state.index.semantic, ...state.embedding }, model: state.agent ? state.cfg.model : null, budget: { spent: Number(state.budget.spent.toFixed(4)), limit: state.budget.limit } }));
     const BRAND_TYPES = { webp: "image/webp", png: "image/png", jpg: "image/jpeg", svg: "image/svg+xml" };
     async function brandFile(c, file) {
         if (!/^[\w.-]+\.(webp|png|jpg|svg)$/.test(file) || !state.brand.has(file))

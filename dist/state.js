@@ -10,6 +10,7 @@ import { QuestionLog } from "./agent/questionlog.js";
 import { config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
 import { loadSources } from "./data/loader.js";
+import { makeEmbedder } from "./search/embed.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import { GitHub } from "./github/app.js";
 export class AppState {
@@ -17,6 +18,8 @@ export class AppState {
     repo;
     index = new SearchIndex([]);
     statuses = [];
+    embedding = { embedder: "none", records: 0, embedded: 0 };
+    embedder;
     /** Files present in the data repo's brand/ folder (logo.webp, mark.webp, favicon.png, ...). */
     brand = new Set();
     /** Parse errors from the latest data repo load; when set, the previous good load stays in service. */
@@ -35,6 +38,7 @@ export class AppState {
         this.log = new QuestionLog(cfg.cacheDir);
         this.limiter = new RateLimiter(cfg.rateLimitPerTenMinutes);
         this.github = new GitHub(cfg);
+        this.embedder = makeEmbedder(cfg.embed);
     }
     async init(opts = {}) {
         await this.budget.load();
@@ -64,9 +68,10 @@ export class AppState {
             catch {
                 this.brand = new Set();
             }
-            const { index, statuses } = await loadSources(this.repo, this.cfg.cacheDir, opts);
+            const { index, statuses, embedding } = await loadSources(this.repo, this.cfg.cacheDir, { ...opts, embedder: this.embedder });
             this.index = index;
             this.statuses = statuses;
+            this.embedding = embedding;
             this.lastBuild = new Date().toISOString();
         })().finally(() => { this.building = undefined; });
         return this.building;

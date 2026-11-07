@@ -3,7 +3,7 @@
  * opens the PR only after the neighbor taps yes.
  */
 import type { Anthropic } from "@anthropic-ai/sdk/client";
-import type { SearchIndex } from "../data/index.js";
+import type { SearchHit, SearchIndex } from "../data/index.js";
 import type { DataRepo, NRecord, RecordKind } from "../data/types.js";
 import { formatVitals, getVitalSigns } from "../vitals/index.js";
 import { makeDraft, type Draft, type DraftKind } from "./drafts.js";
@@ -22,7 +22,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: "search_data",
     description:
-      "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents. Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
+      "Search by meaning and by words over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents. Describe what the neighbor wants in a few plain words ('indoor place for a toddler on a rainy day', 'someone to fix a leaking faucet'); it finds records that mean the same thing even when the words differ. Run two or three short queries from different angles rather than one long one. Each record ends with a match line: 'all words' and 'exact title' are direct hits; 'meaning 0.6' alone means it is related, so say how it differs. Returns records with source name, link, and when fetched.",
     input_schema: {
       type: "object",
       properties: {
@@ -111,15 +111,20 @@ export function formatRecord(r: NRecord): string {
   return bits.join("\n");
 }
 
+/** A record plus how it matched the query. */
+export function formatHit(h: SearchHit): string {
+  return `${formatRecord(h.record)}\nmatch: ${h.why.join(", ") || "related"}`;
+}
+
 export async function runTool(name: string, input: unknown, ctx: ToolContext): Promise<string> {
   const args = (input ?? {}) as Record<string, unknown>;
   switch (name) {
     case "search_data": {
       const limit = Math.min(25, Math.max(1, Number(args.limit ?? 10)));
       const kinds = Array.isArray(args.kinds) ? (args.kinds as RecordKind[]) : undefined;
-      const hits = ctx.index.search(String(args.query ?? ""), { kinds, upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
+      const hits = await ctx.index.searchDetailed(String(args.query ?? ""), { kinds, upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
       if (!hits.length) return "No records matched. Try other words, or say you don't know and point to a person or resource.";
-      return hits.map(formatRecord).join("\n\n");
+      return hits.map(formatHit).join("\n\n");
     }
     case "get_vital_signs": {
       const signs = await getVitalSigns(ctx.repo);
@@ -128,9 +133,9 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
     }
     case "lookup_person_or_place": {
       const q = String(args.name ?? "");
-      const hits = ctx.index.search(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
+      const hits = await ctx.index.searchDetailed(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
       if (!hits.length) return `Nothing in the repo matches "${q}". Say you don't know; do not invent hours or contacts.`;
-      return hits.map(formatRecord).join("\n\n");
+      return hits.map(formatHit).join("\n\n");
     }
     case "city_311": {
       const { run311 } = await import("./city311.js");

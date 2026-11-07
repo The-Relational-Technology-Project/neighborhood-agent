@@ -20,7 +20,9 @@
     "ask": "tsx src/cli.ts ask",
     "index": "tsx src/cli.ts index",
     "vitals": "tsx src/cli.ts vitals",
-    "golden": "tsx src/cli.ts golden"
+    "golden": "tsx src/cli.ts golden",
+    "search": "tsx src/cli.ts search",
+    "retrieval": "tsx src/cli.ts retrieval"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.6.0",

@@ -1,6 +1,6 @@
 import { localDate } from "../data/index.js";
 import { getVitalSigns } from "../vitals/index.js";
-import { formatRecord, runTool } from "../agent/tools.js";
+import { formatHit, formatRecord, runTool } from "../agent/tools.js";
 import { makeDraft } from "../agent/drafts.js";
 export const PACK_VERSION = "0.1.0";
 /** Kinds the pack serves. Corrections are folded into the records they correct; archive notes stay in the repo. */
@@ -214,10 +214,10 @@ export async function callTool(name, args, deps) {
         }
         case "search": {
             const limit = Math.min(50, Math.max(1, Number(args.limit ?? 10)));
-            const hits = state.index.search(String(args.query ?? ""), { kinds: kinds(args.kinds), upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
+            const hits = await state.index.searchDetailed(String(args.query ?? ""), { kinds: kinds(args.kinds), upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
             if (!hits.length)
                 return text("No records matched. Try other words.", { records: [] });
-            return text(hits.map(formatRecord).join("\n\n"), { records: hits.map(recordJson) });
+            return text(hits.map(formatHit).join("\n\n"), { records: hits.map((h) => ({ ...recordJson(h.record), match: h.why })) });
         }
         case "list": {
             const kind = String(args.kind);

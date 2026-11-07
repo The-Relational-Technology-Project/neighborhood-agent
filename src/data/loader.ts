@@ -8,6 +8,8 @@ import { logInjection, looksLikeInjection } from "../safety/injection.js";
 import { parseDuration, SourceCache } from "./cache.js";
 import { SearchIndex } from "./index.js";
 import type { DataRepo, NRecord, SourceDef } from "./types.js";
+import type { Embedder } from "../search/embed.js";
+import { chunksFor, VectorStore } from "../search/vectors.js";
 
 export interface SourceStatus {
   id: string;
@@ -32,9 +34,20 @@ export interface SourceStatus {
   type?: string;
 }
 
+export interface EmbeddingStatus {
+  /** The embedder id (e.g. voyage-voyage-3.5), or "none" when search is lexical only. */
+  embedder: string;
+  /** Records with at least one vector. */
+  records: number;
+  /** Chunks embedded on this build (new or changed records). */
+  embedded: number;
+  error?: string;
+}
+
 export interface LoadResult {
   index: SearchIndex;
   statuses: SourceStatus[];
+  embedding: EmbeddingStatus;
 }
 
 export function httpFetch(url: string, init: RequestInit = {}): Promise<Response> {
@@ -43,7 +56,7 @@ export function httpFetch(url: string, init: RequestInit = {}): Promise<Response
   return fetch(url, { ...init, headers, signal: init.signal ?? AbortSignal.timeout(20_000) });
 }
 
-export async function loadSources(repo: DataRepo, cacheDir: string, opts: { force?: boolean; only?: string[] } = {}): Promise<LoadResult> {
+export async function loadSources(repo: DataRepo, cacheDir: string, opts: { force?: boolean; only?: string[]; embedder?: Embedder } = {}): Promise<LoadResult> {
   const cache = new SourceCache(cacheDir);
   const records: NRecord[] = [];
   const statuses: SourceStatus[] = [];
@@ -110,5 +123,23 @@ export async function loadSources(repo: DataRepo, cacheDir: string, opts: { forc
     records.push(...recs);
   }
 
-  return { index: new SearchIndex(records, repo.corrections), statuses };
+  const index = new SearchIndex(records, repo.corrections);
+  const embedding = await embedAll(index, cacheDir, opts.embedder);
+  return { index, statuses, embedding };
+}
+
+/**
+ * Give every record a vector so search can match by meaning. Only chunks not already in the store
+ * are sent to the embedder, so a rebuild after one merged PR embeds one record. A failure leaves
+ * the index lexical only (and semantic over whatever vectors were already stored).
+ */
+export async function embedAll(index: SearchIndex, cacheDir: string, embedder?: Embedder): Promise<EmbeddingStatus> {
+  if (!embedder) return { embedder: "none", records: 0, embedded: 0 };
+  const store = new VectorStore(cacheDir, embedder);
+  await store.load();
+  const chunks = index.all().flatMap(chunksFor);
+  const res = await store.ensure(chunks);
+  if (res.error) console.warn(`[search] embedding: ${res.error}`);
+  index.attachVectors(store);
+  return { embedder: embedder.id, records: index.vectors, embedded: res.embedded, error: res.error };
 }

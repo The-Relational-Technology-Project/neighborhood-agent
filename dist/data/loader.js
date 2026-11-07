@@ -6,6 +6,7 @@ import { adapters } from "../adapters/registry.js";
 import { logInjection, looksLikeInjection } from "../safety/injection.js";
 import { parseDuration, SourceCache } from "./cache.js";
 import { SearchIndex } from "./index.js";
+import { chunksFor, VectorStore } from "../search/vectors.js";
 export function httpFetch(url, init = {}) {
     const headers = new Headers(init.headers);
     if (!headers.has("user-agent"))
@@ -84,6 +85,25 @@ export async function loadSources(repo, cacheDir, opts = {}) {
         status.records = recs.length;
         records.push(...recs);
     }
-    return { index: new SearchIndex(records, repo.corrections), statuses };
+    const index = new SearchIndex(records, repo.corrections);
+    const embedding = await embedAll(index, cacheDir, opts.embedder);
+    return { index, statuses, embedding };
+}
+/**
+ * Give every record a vector so search can match by meaning. Only chunks not already in the store
+ * are sent to the embedder, so a rebuild after one merged PR embeds one record. A failure leaves
+ * the index lexical only (and semantic over whatever vectors were already stored).
+ */
+export async function embedAll(index, cacheDir, embedder) {
+    if (!embedder)
+        return { embedder: "none", records: 0, embedded: 0 };
+    const store = new VectorStore(cacheDir, embedder);
+    await store.load();
+    const chunks = index.all().flatMap(chunksFor);
+    const res = await store.ensure(chunks);
+    if (res.error)
+        console.warn(`[search] embedding: ${res.error}`);
+    index.attachVectors(store);
+    return { embedder: embedder.id, records: index.vectors, embedded: res.embedded, error: res.error };
 }
 //# sourceMappingURL=loader.js.map

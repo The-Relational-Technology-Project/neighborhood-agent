@@ -29,9 +29,9 @@ describe("index over the fixture repo", () => {
 
   it("finds the tool library for 'sharing tools' and the market for 'market'", async () => {
     const { index } = await loadFixture();
-    const tools = index.search("tool library sharing", { kinds: ["resource", "person"] });
+    const tools = await index.search("tool library sharing", { kinds: ["resource", "person"] });
     expect(tools[0].title).toBe("Elsewhere Tool Library");
-    const market = index.search("saturday market", { kinds: ["event"], upcoming: true });
+    const market = await index.search("saturday market", { kinds: ["event"], upcoming: true });
     expect(market.length).toBeGreaterThan(0);
     expect(market[0].location).toBe("Main Street at the river");
     expect(market[0].source.name).toBe("Elsewhere town calendar");
@@ -39,17 +39,17 @@ describe("index over the fixture repo", () => {
 
   it("applies repo corrections on top of place records and says so", async () => {
     const { index } = await loadFixture();
-    const diner = index.search("diner", { kinds: ["place"] })[0];
+    const diner = (await index.search("diner", { kinds: ["place"] }))[0];
     expect(diner.corrections).toHaveLength(1);
     expect(diner.text).toMatch(/Corrected by a neighbor on 2026-01-16: hours .*now "6am to 2pm, closed Mondays"/);
-    const store = index.search("corner store", { kinds: ["place"] })[0];
+    const store = (await index.search("corner store", { kinds: ["place"] }))[0];
     expect(store.corrections).toBeUndefined();
     expect(store.text).toContain("verified 2026-01-15");
   });
 
   it("indexes recommendations with vouches, freshness, and a withheld contact", async () => {
     const { index } = await loadFixture();
-    const hits = index.search("plumber", { kinds: ["recommendation"] });
+    const hits = await index.search("plumber", { kinds: ["recommendation"] });
     expect(hits.map((h) => h.title)).toEqual(expect.arrayContaining(["Sam", "River Plumbing Co"]));
     const sam = hits.find((h) => h.title === "Sam")!;
     expect(sam.source.name).toBe("Elsewhere Neighbors Recs (as of 2026-01-20)");
@@ -68,12 +68,12 @@ describe("index over the fixture repo", () => {
     expect(miss[0].corrections).toBeUndefined();
   });
 
-  it("filters upcoming and ranks corrected records first", async () => {
+  it("filters upcoming and handles an empty index", async () => {
     const { index } = await loadFixture();
     const all = index.byKind("event", { upcoming: true });
     expect(all.every((e) => !e.date || e.date >= "2026-01-01")).toBe(true);
     expect(all.some((e) => e.title === "River Day")).toBe(true);
     const empty = new SearchIndex([]);
-    expect(empty.search("anything")).toEqual([]);
+    expect(await empty.search("anything")).toEqual([]);
   });
 });

@@ -3,7 +3,8 @@
  * nagent: the terminal door.
  *   nagent index            rebuild the index from the data repo and every live source
  *   nagent ask "question"   answer from the terminal with citations
- *   nagent search "words"   raw search over the index
+ *   nagent search "words"   raw search over the index, with how each hit matched
+ *   nagent retrieval [file] score retrieval.yml: does each query find the record it should?
  *   nagent vitals           the vital signs line
  *   nagent sources          source statuses
  *   nagent golden [file]    run the golden questions (needs a model)
@@ -25,12 +26,40 @@ async function main() {
             for (const s of state.statuses)
                 console.log(`${s.id.padEnd(22)} ${s.status.padEnd(9)} ${String(s.records).padStart(4)} ${s.fetched_at ?? ""} ${s.stale ? "(stale)" : ""} ${s.error ? "ERROR " + s.error : ""}${s.skipped ? "skipped: " + s.skipped : ""}`);
             console.log(`\n${state.index.size} records. Repo at ${state.repo.sha ?? "(no git)"}.`);
+            const e = state.embedding;
+            console.log(e.embedder === "none" ? "Search: words only (set VOYAGE_API_KEY for search by meaning)." : `Search: words + meaning via ${e.embedder}; ${e.records} records have vectors, ${e.embedded} chunk(s) embedded on this build.${e.error ? ` ERROR ${e.error}` : ""}`);
             return;
         }
         case "search": {
             await state.init();
-            for (const r of state.index.search(arg, { limit: 10 }))
-                console.log(formatRecord(r) + "\n");
+            const hits = await state.index.searchDetailed(arg, { limit: 10 });
+            hits.forEach((h, i) => console.log(`#${i + 1}  score ${h.score.toFixed(4)}  words ${h.lexicalRank ?? "-"}  meaning ${h.semanticRank ?? "-"}${h.similarity !== undefined ? ` (${h.similarity.toFixed(2)})` : ""}  ${h.why.join(", ")}\n${formatRecord(h.record)}\n`));
+            if (!hits.length)
+                console.log("No hits.");
+            return;
+        }
+        case "retrieval": {
+            await state.init();
+            const file = arg || path.resolve(process.cwd(), "retrieval.yml");
+            const spec = YAML.parse(await fs.readFile(file, "utf8"));
+            const found = (title, id, want) => title.toLowerCase().includes(want.toLowerCase()) || id.toLowerCase().includes(want.toLowerCase());
+            let at1 = 0, at3 = 0, at10 = 0, mrr = 0;
+            for (const q of spec.queries) {
+                const hits = await state.index.searchDetailed(q.q, { limit: 10, kinds: q.kinds, upcoming: q.upcoming });
+                const rank = hits.findIndex((h) => q.expect.some((w) => found(h.record.title, h.record.id, w))) + 1;
+                if (rank === 1)
+                    at1++;
+                if (rank >= 1 && rank <= 3)
+                    at3++;
+                if (rank >= 1) {
+                    at10++;
+                    mrr += 1 / rank;
+                }
+                const top = hits[0];
+                console.log(`${rank === 1 ? "  1 " : rank ? `  ${rank} ` : "MISS"} ${q.q}\n      want: ${q.expect.join(" | ")}\n      top: ${top ? `${top.record.title} [${top.why.join(", ")}]` : "nothing"}${rank > 1 ? `\n      found at #${rank}: ${hits[rank - 1].record.title} [${hits[rank - 1].why.join(", ")}]` : ""}`);
+            }
+            const n = spec.queries.length;
+            console.log(`\n${n} queries. hit@1 ${at1}/${n}, hit@3 ${at3}/${n}, hit@10 ${at10}/${n}, MRR ${(mrr / n).toFixed(3)}. Search: ${state.index.semantic ? `words + meaning (${state.embedding.embedder})` : "words only"}.`);
             return;
         }
         case "vitals": {
@@ -108,7 +137,7 @@ async function main() {
             return;
         }
         default:
-            console.log("nagent index | ask \"q\" | search \"words\" | vitals | sources | golden [file] | log-pr");
+            console.log("nagent index | ask \"q\" | search \"words\" | retrieval [file] | vitals | sources | golden [file] | log-pr");
     }
 }
 main().catch((err) => { console.error(err instanceof Error ? err.message : err); process.exit(1); });

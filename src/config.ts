@@ -4,6 +4,7 @@
  */
 import { createPrivateKey } from "node:crypto";
 import path from "node:path";
+import type { EmbedConfig } from "./search/embed.js";
 
 function env(name: string, fallback?: string): string | undefined {
   const v = process.env[name];
@@ -42,6 +43,8 @@ export interface Config {
   email: { apiKey?: string; from: string; to: string[] };
   /** Operate without a model (CLI index/search still works). */
   anthropicConfigured: boolean;
+  /** Semantic search. Voyage when VOYAGE_API_KEY is set, else off, unless EMBED_PROVIDER says otherwise. */
+  embed: EmbedConfig;
 }
 
 /**
@@ -65,6 +68,21 @@ export function normalizePem(raw: string | undefined): string | undefined {
   }
   const body = m[2].replace(/\s+/g, "");
   return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)?.join("\n") ?? ""}\n-----END ${m[1]}-----\n`;
+}
+
+export function embedConfig(): EmbedConfig {
+  const voyage = env("VOYAGE_API_KEY");
+  const openai = env("OPENAI_API_KEY");
+  const provider = (env("EMBED_PROVIDER") ?? (voyage ? "voyage" : openai ? "openai" : "none")) as EmbedConfig["provider"];
+  if (!["voyage", "openai", "hash", "none"].includes(provider)) throw new Error(`EMBED_PROVIDER must be voyage, openai, hash, or none (got ${provider})`);
+  const min = env("EMBED_MIN_SIMILARITY");
+  return {
+    provider,
+    model: env("EMBED_MODEL"),
+    url: env("EMBED_URL"),
+    apiKey: env("EMBED_API_KEY") ?? (provider === "voyage" ? voyage : provider === "openai" ? openai : undefined),
+    minSimilarity: min !== undefined && Number.isFinite(Number(min)) ? Number(min) : undefined,
+  };
 }
 
 export function loadConfig(): Config {
@@ -102,6 +120,7 @@ export function loadConfig(): Config {
       to: (env("STEWARD_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     },
     anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
+    embed: embedConfig(),
   };
 }
 

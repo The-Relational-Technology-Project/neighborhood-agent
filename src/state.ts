@@ -10,7 +10,8 @@ import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
 import { config, type Config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
-import { loadSources, type SourceStatus } from "./data/loader.js";
+import { loadSources, type EmbeddingStatus, type SourceStatus } from "./data/loader.js";
+import { makeEmbedder, type Embedder } from "./search/embed.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import type { DataRepo } from "./data/types.js";
 import { GitHub } from "./github/app.js";
@@ -19,6 +20,8 @@ export class AppState {
   repo!: DataRepo;
   index: SearchIndex = new SearchIndex([]);
   statuses: SourceStatus[] = [];
+  embedding: EmbeddingStatus = { embedder: "none", records: 0, embedded: 0 };
+  readonly embedder?: Embedder;
   /** Files present in the data repo's brand/ folder (logo.webp, mark.webp, favicon.png, ...). */
   brand = new Set<string>();
   /** Parse errors from the latest data repo load; when set, the previous good load stays in service. */
@@ -37,6 +40,7 @@ export class AppState {
     this.log = new QuestionLog(cfg.cacheDir);
     this.limiter = new RateLimiter(cfg.rateLimitPerTenMinutes);
     this.github = new GitHub(cfg);
+    this.embedder = makeEmbedder(cfg.embed);
   }
 
   async init(opts: { force?: boolean } = {}): Promise<void> {
@@ -62,9 +66,10 @@ export class AppState {
       }
       this.repo = next;
       try { this.brand = new Set((await fs.readdir(path.join(root, "brand"))).filter((f) => /^[\w.-]+\.(webp|png|jpg|svg)$/.test(f))); } catch { this.brand = new Set(); }
-      const { index, statuses } = await loadSources(this.repo, this.cfg.cacheDir, opts);
+      const { index, statuses, embedding } = await loadSources(this.repo, this.cfg.cacheDir, { ...opts, embedder: this.embedder });
       this.index = index;
       this.statuses = statuses;
+      this.embedding = embedding;
       this.lastBuild = new Date().toISOString();
     })().finally(() => { this.building = undefined; });
     return this.building;

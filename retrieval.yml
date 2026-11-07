@@ -1,0 +1,82 @@
+# Retrieval eval: does each query find the record it should, and how high?
+# Run: npm run retrieval   (uses DATA_REPO; with VOYAGE_API_KEY set it tests search by meaning too)
+# `expect` entries match a record's title or id (case-insensitive substring). Any one counts.
+# Questions phrased the way neighbors ask them, not the way records are titled: that is the point.
+
+queries:
+  # Direct names and words
+  - q: tool library
+    expect: [Community Supplies]
+  - q: borrow a ladder
+    expect: [Community Supplies]
+  - q: andytown
+    expect: [Andytown Coffee Roasters]
+  - q: pizza today
+    expect: [Arizmendi, outersunset.today]
+  - q: community garden
+    expect: [Far Out West Community Garden]
+  - q: library on ortega
+    expect: [Ortega Branch Library]
+  - q: where do walking group flyers get posted
+    expect: [Black Bird, Andytown]
+  - q: report a pothole
+    expect: [SF311]
+  - q: what's being built near me
+    expect: [SF Planning Property Information Map]
+  - q: new to the neighborhood welcome
+    expect: [SF Welcome Packet]
+  - q: live music venue
+    expect: [Sunset Village Music Hall]
+
+  # Recommendations, asked the way people ask
+  - q: who's a good plumber
+    kinds: [recommendation]
+    expect: [Plumbing, plumber]
+  - q: someone to fix a leaking faucet
+    kinds: [recommendation]
+    expect: [Plumbing, plumber]
+  - q: fast reliable internet
+    kinds: [recommendation]
+    expect: [Sonic]
+  - q: pediatrician
+    kinds: [recommendation]
+    expect: [Pediatrics]
+  - q: doctor for my kid
+    kinds: [recommendation]
+    expect: [Pediatrics, pediatric]
+  - q: kids dentist
+    kinds: [recommendation]
+    expect: [Pediatric Dentistry]
+  - q: haircut
+    kinds: [recommendation]
+    expect: [Cuts, Salon, Dick's]
+  - q: electrician
+    kinds: [recommendation]
+    expect: [Electric]
+  - q: roof leak
+    kinds: [recommendation]
+    expect: [Roofing, Leak]
+  - q: cargo bike for hauling kids
+    kinds: [recommendation]
+    expect: [Globe Haul, cargo]
+  - q: help with breastfeeding
+    kinds: [recommendation]
+    expect: [lactation, Amy Clark]
+  - q: babysitter
+    kinds: [recommendation]
+    expect: [babysit, Eunice]
+  - q: someone to clean the house
+    kinds: [recommendation]
+    expect: [Cleaning, Sandra, Beatriz]
+  - q: solar panels
+    kinds: [recommendation]
+    expect: [Solar]
+  - q: locked out of my house
+    kinds: [recommendation]
+    expect: [Locksmith]
+  - q: soccer for little kids
+    kinds: [recommendation]
+    expect: [SF Tots, soccer]
+  - q: kid birthday party food
+    kinds: [recommendation]
+    expect: [tacos, catering, party]

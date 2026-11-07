@@ -35,6 +35,7 @@ This repo is the code. The neighborhood's data lives in a separate repo that the
 ```
 
 - **One read path.** `sources.yml` lists every source. Each live source has an adapter (`src/adapters/`) that exports `fetch()` and `normalize()`. Records (event, place, group, resource, person, proposal, correction, note, constituent) go into a full-text index. Raw payloads are cached on disk next to the normalized records so a steward can audit what the agent saw. No vector database; the corpus is small.
+- **Search by words and by meaning.** Every record goes into a full-text index (MiniSearch, with fuzzy matching and a light plural stemmer) and, when an embedding key is set, gets a vector too (`src/search/`). A query runs both: records matching every word first, then any word, fused with the semantic neighbors by reciprocal rank, then nudged by what the neighborhood cares about (an exact title, a steward's correction, the repo's own words over fetched data, how many neighbors vouched, how soon an event is). Each hit tells the model how it matched ("all words", "meaning 0.71", "exact title") so a near answer is presented as near. Vectors are cached by content hash in the cache dir, so a rebuild after one merged PR embeds one record and new data is searchable by meaning with nothing to configure. If the embedding call fails, that query falls back to words. `npm run search -- "words"` shows ranks and reasons; `npm run retrieval` scores `retrieval.yml`.
 - **One write path.** The model calls `draft_pr`, which only returns file content. The app shows it to the neighbor with a "Yes, open the PR" button. Only that tap calls GitHub. The PR carries a label (`event`, `correction`, `proposal`) and a body with the neighbor's ask in their words, what changed, and why.
 - **Vital signs** (`src/vitals/`) are read live from public feeds named in `sources.yml` with `vital_sign: true`: NOAA tides, Open-Meteo marine and air, iNaturalist, NPS alerts, and a plover season computed from the constituent file.
 - **Prompt assembly.** The system prompt is `place.md` + `STEWARDS.md` + `constituents/` + people and resources + a fixed behavior block (`src/agent/prompt.ts`). Stable parts are cached; the date comes after.
@@ -56,7 +57,9 @@ npm run dev              # http://localhost:3000
 
 `DATA_REPO` can be a local path (handy while editing the data repo) or a git URL (the server clones it and re-pulls every `REPO_POLL_MINUTES`).
 
-Other commands: `npm run vitals`, `npx tsx src/cli.ts search "words"`, `npx tsx src/cli.ts sources`, `npm run golden` (runs `golden.yml` live), `npx tsx src/cli.ts log-pr` (opens the weekly question-log PR), `npm test`.
+Set `VOYAGE_API_KEY` (Voyage AI, Anthropic's embedding partner; `EMBED_PROVIDER=openai` with `OPENAI_API_KEY` also works) to search by meaning as well as by words. Without it, search is words only.
+
+Other commands: `npm run vitals`, `npm run search -- "words"` (ranks and why each hit matched), `npm run retrieval` (scores the queries in `retrieval.yml`), `npx tsx src/cli.ts sources`, `npm run golden` (runs `golden.yml` live), `npx tsx src/cli.ts log-pr` (opens the weekly question-log PR), `npm test`.
 
 ## Deploy
 
