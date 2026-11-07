@@ -70,6 +70,15 @@ Create a GitHub App on the org (Settings → Developer settings → GitHub Apps)
 
 Without the app configured, the agent still answers; the "Yes, open the PR" button falls back to a prefilled "create file" link on GitHub, and the contact page shows the stewards' email.
 
+## The place pack: the neighborhood's data for other tools
+
+Two open doors, so apps built for the place (in Relational Builder or anywhere) can build on the same commons:
+
+- `GET /place.json`: the place (label, center, catchment, time zone), every source with its license and freshness, the constituents and their advocates, the rules that travel with the data, and how a tool can give back.
+- `POST /mcp`: an open MCP server (JSON-RPC over HTTP, no auth, CORS open). Tools: `about_place`, `search`, `list`, `get`, `vital_signs`, `city_311`, `suggest_source`. Replies carry prose and `structuredContent` records.
+
+Nothing is in the pack that a neighbor couldn't already read on the site. `suggest_source` is the way back in: a tool offers its public feed, and it reaches the stewards like any other suggestion (5 an hour per caller). Reads are limited to 300 per 10 minutes per caller. The place lines (`center`, `catchment_miles`, `catchment_label`, `place_label`, `place_about`) live at the end of the data repo's `place.md`. Code: `src/place/pack.ts`.
+
 ## For stewards
 
 You don't need to touch this repo. Everything you govern is in the data repo:

@@ -12,6 +12,8 @@ import { emailConfigured, emailStewards, stewardAddresses, type Attachment } fro
 import { isoWeek } from "./agent/questionlog.js";
 import type { AppState } from "./state.js";
 import { getVitalSigns } from "./vitals/index.js";
+import { handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
+import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
 import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage, stewardsPage, type QueueItem } from "./web/pages.js";
 
@@ -84,6 +86,27 @@ app.post("/contact", async (c) => {
     console.error("[contact]", err);
     return c.html(contactPage(state, mode, { error: "That didn't go through. Try again in a little while." }));
   }
+});
+
+/* The place pack: the neighborhood's public data for other tools (see src/place/pack.ts). */
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type, mcp-protocol-version, mcp-session-id, accept", "access-control-max-age": "86400" };
+const packReads = new RateLimiter(300);
+const packWrites = new RateLimiter(5, 60 * 60 * 1000);
+const siteBase = (c: Context) => (state.cfg.siteUrl ?? new URL(c.req.url).origin).replace(/\/$/, "");
+for (const p of ["/place.json", "/mcp"]) app.options(p, (c) => c.body(null, 204, CORS));
+app.get("/place.json", async (c) => c.json(await placePack(state, siteBase(c)), 200, { ...CORS, "cache-control": "public, max-age=300" }));
+app.get("/mcp", (c) => c.json({ name: "knowy-place-pack", version: PACK_VERSION, transport: "POST JSON-RPC 2.0 here (initialize, tools/list, tools/call). No auth.", tools: mcpTools.map((t) => t.name), about: `${siteBase(c)}/place.json` }, 200, CORS));
+app.post("/mcp", async (c) => {
+  if (!packReads.allow(clientIp(c))) return c.json({ jsonrpc: "2.0", id: null, error: { code: -32000, message: "Too many requests. Try again in a few minutes." } }, 429, CORS);
+  let body: unknown;
+  try { body = await c.req.json(); } catch { return c.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, 400, CORS); }
+  const deps = { state, base: siteBase(c), send: (d: Draft) => sendToStewards(d), allowWrite: () => packWrites.allow(clientIp(c)) };
+  if (Array.isArray(body)) {
+    const out = (await Promise.all(body.slice(0, 20).map((m) => handleRpc(m, deps)))).filter(Boolean);
+    return out.length ? c.json(out, 200, CORS) : c.body(null, 202, CORS);
+  }
+  const res = await handleRpc(body as Parameters<typeof handleRpc>[0], deps);
+  return res ? c.json(res, 200, CORS) : c.body(null, 202, CORS);
 });
 
 app.get("/api/vitals", async (c) => c.json(await safeVitals()));
