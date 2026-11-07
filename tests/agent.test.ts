@@ -193,5 +193,7 @@ describe("doors for life changes", () => {
     expect(text).not.toContain("Not Asked Yet");
     expect(BEHAVIOR).toContain("Never guess a life stage");
     expect(BEHAVIOR).toContain("Point to the group, never to a member");
+    expect(BEHAVIOR).toContain("come back and tell you what they find out");
+    expect(BEHAVIOR).toContain("Ask once per answer, never more");
   });
 });
