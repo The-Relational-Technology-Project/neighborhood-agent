@@ -121,6 +121,16 @@ export interface Door {
   confirmed?: string;
 }
 
+/** A cross-link between two records (links.yml): "this rec is for that place", "this group runs that event". */
+export interface Link {
+  from: string;
+  to: string;
+  why?: string;
+  /** Who proposed it: a steward, or "agent" (then a steward merged it). */
+  by?: string;
+  added?: string;
+}
+
 export interface Resource {
   name: string;
   what: string;
@@ -165,6 +175,8 @@ export interface DataRepo {
   resources: Resource[];
   /** Groups that welcome people at life changes, from doors.yml. Only ok_to_point: yes are used. */
   doors: Door[];
+  /** Cross-links between records, from links.yml. */
+  links: Link[];
   events: FrontmatterDoc[];
   proposals: FrontmatterDoc[];
   corrections: Correction[];

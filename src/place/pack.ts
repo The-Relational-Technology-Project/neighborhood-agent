@@ -263,7 +263,7 @@ export async function callTool(name: string, args: Json, deps: McpDeps): Promise
       const limit = Math.min(50, Math.max(1, Number(args.limit ?? 10)));
       const hits = await state.index.searchDetailed(String(args.query ?? ""), { kinds: kinds(args.kinds), upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
       if (!hits.length) return text("No records matched. Try other words.", { records: [] });
-      return text(hits.map(formatHit).join("\n\n"), { records: hits.map((h) => ({ ...recordJson(h.record), match: h.why })) });
+      return text(hits.map((h) => formatHit(h, state.index)).join("\n\n"), { records: hits.map((h) => ({ ...recordJson(h.record), match: h.why, related: state.index.related(h.record.id).map((r) => ({ id: r.record.id, title: r.record.title, why: r.why })) })) });
     }
     case "list": {
       const kind = String(args.kind) as RecordKind;

@@ -111,9 +111,11 @@ export function formatRecord(r: NRecord): string {
   return bits.join("\n");
 }
 
-/** A record plus how it matched the query. */
-export function formatHit(h: SearchHit): string {
-  return `${formatRecord(h.record)}\nmatch: ${h.why.join(", ") || "related"}`;
+/** A record plus how it matched the query, and what it's linked to. */
+export function formatHit(h: SearchHit, index?: Pick<SearchIndex, "related">): string {
+  const rel = index?.related(h.record.id) ?? [];
+  const related = rel.length ? `\nrelated: ${rel.slice(0, 4).map((r) => `${r.record.title} (${r.record.kind}${r.why ? `; ${r.why}` : ""})`).join("; ")}` : "";
+  return `${formatRecord(h.record)}\nmatch: ${h.why.join(", ") || "related"}${related}`;
 }
 
 export async function runTool(name: string, input: unknown, ctx: ToolContext): Promise<string> {
@@ -124,7 +126,7 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
       const kinds = Array.isArray(args.kinds) ? (args.kinds as RecordKind[]) : undefined;
       const hits = await ctx.index.searchDetailed(String(args.query ?? ""), { kinds, upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
       if (!hits.length) return "No records matched. Try other words, or say you don't know and point to a person or resource.";
-      return hits.map(formatHit).join("\n\n");
+      return hits.map((h) => formatHit(h, ctx.index)).join("\n\n");
     }
     case "get_vital_signs": {
       const signs = await getVitalSigns(ctx.repo);
@@ -135,7 +137,7 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
       const q = String(args.name ?? "");
       const hits = await ctx.index.searchDetailed(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
       if (!hits.length) return `Nothing in the repo matches "${q}". Say you don't know; do not invent hours or contacts.`;
-      return hits.map(formatHit).join("\n\n");
+      return hits.map((h) => formatHit(h, ctx.index)).join("\n\n");
     }
     case "city_311": {
       const { run311 } = await import("./city311.js");

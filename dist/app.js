@@ -122,6 +122,8 @@ export function createApp(state) {
         return res ? c.json(res, 200, CORS) : c.body(null, 202, CORS);
     });
     app.get("/api/vitals", async (c) => c.json(await safeVitals()));
+    /** What the agent searched for and couldn't find, scrubbed; the weekly research job reads this. */
+    app.get("/api/gaps", (c) => c.json({ entries: state.gaps.all() }));
     app.get("/api/sources", (c) => c.json(state.statuses));
     app.post("/api/chat", async (c) => {
         if (!state.agent)
@@ -143,15 +145,18 @@ export function createApp(state) {
         return streamSSE(c, async (stream) => {
             const send = (event, data) => stream.writeSSE({ event, data: JSON.stringify(data) });
             try {
+                const searched = [];
                 const result = await state.agent.respond(messages, { repo: state.repo, index: state.index, log: state.log }, {
                     onText: (d) => void send("text", d),
-                    onTool: (name) => void send("tool", name),
+                    onTool: (name, input) => { void send("tool", name); const q = input; const s = q?.query ?? q?.name; if ((name === "search_data" || name === "lookup_person_or_place") && typeof s === "string")
+                        searched.push(s); },
                     onDraft: (d) => void send("draft", { id: d.id, kind: d.kind, summary: d.summary, token: signDraft(d) }),
                 });
                 await send("done", { tools: result.tools_used });
                 const question = messages[messages.length - 1].content;
                 classify(state.classifier, state.cfg.classifyModel, question, result.text)
-                    .then((cls) => state.log.add(cls.topic, cls.referral, cls.dont_know))
+                    .then(async (cls) => { await state.log.add(cls.topic, cls.referral, cls.dont_know); if (cls.dont_know && searched.length)
+                    await state.gaps.add(cls.topic, searched); })
                     .catch(() => undefined);
             }
             catch (err) {

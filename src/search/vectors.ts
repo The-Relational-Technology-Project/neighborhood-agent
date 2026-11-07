@@ -125,6 +125,11 @@ export class DenseIndex {
 
   get size(): number { return this.entries.length; }
 
+  /** A record's first chunk vector (the header and the start of its text), or undefined. */
+  vectorOf(id: string): Float32Array | undefined {
+    return this.entries.find((e) => e.id === id)?.vecs[0];
+  }
+
   /** Records by best chunk similarity, highest first, above the floor. */
   search(query: Float32Array, opts: { limit: number; minSimilarity: number; allow?: (id: string) => boolean }): Array<{ id: string; similarity: number }> {
     const out: Array<{ id: string; similarity: number }> = [];

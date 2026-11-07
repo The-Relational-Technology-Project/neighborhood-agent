@@ -59,7 +59,7 @@ npm run dev              # http://localhost:3000
 
 Set `VOYAGE_API_KEY` (Voyage AI, Anthropic's embedding partner; `EMBED_PROVIDER=openai` with `OPENAI_API_KEY` also works) to search by meaning as well as by words. Without it, search is words only.
 
-Other commands: `npm run vitals`, `npm run search -- "words"` (ranks and why each hit matched), `npm run retrieval` (scores the queries in `retrieval.yml`), `npx tsx src/cli.ts sources`, `npm run golden` (runs `golden.yml` live), `npx tsx src/cli.ts log-pr` (opens the weekly question-log PR), `npm test`.
+Other commands: `npm run vitals`, `npm run search -- "words"` (ranks and why each hit matched), `npm run retrieval` (scores the queries in `retrieval.yml`), `npm run weekly -- --dry` (the background jobs, without email or PRs), `npx tsx src/cli.ts sources`, `npm run golden` (runs `golden.yml` live), `npx tsx src/cli.ts log-pr` (opens the weekly question-log PR), `npm test`.
 
 ## Deploy
 
@@ -72,6 +72,17 @@ Other commands: `npm run vitals`, `npm run search -- "words"` (ranks and why eac
 Create a GitHub App on the org (Settings → Developer settings → GitHub Apps). Permissions: Contents read and write, Pull requests read and write, Issues read and write. No webhook required (optional: subscribe to `push` and point it at `/api/webhook/github` with `GITHUB_WEBHOOK_SECRET` so merges rebuild the index at once). Install it on the data repo only. Put the App ID and the private key (PEM, newlines as `\n`) in the environment. PRs and contact-form issues come from the app's bot identity.
 
 Without the app configured, the agent still answers; the "Yes, open the PR" button falls back to a prefilled "create file" link on GitHub, and the contact page shows the stewards' email.
+
+## The weekly run: what the agent does in the background
+
+Once a week (`.github/workflows/weekly.yml`, Mondays 7am Pacific, free on a public repo; or `npm run weekly`), the agent does four quiet jobs and sends one email (`DIGEST_EMAILS`, else the stewards). It proposes; stewards decide. Code: `src/jobs/`.
+
+- **Gaps.** Exchanges that ended in "I don't know" leave behind the agent's own search queries (never the neighbor's message; scrubbed of anything that looks like a name, number, address, or email; readable at `/api/gaps`). The job groups them into themes, re-searches the notes by meaning, and reports each as covered (a retrieval miss), partial, or missing, with a concrete next step: the kind of record to add, a planned source that likely has it, or a listed person to ask.
+- **Freshness.** Every link in places, resources, doors, sources, and recs is checked. Dead links, places nobody has verified in six months, recs whose last vouch is two years old, and sources that erred on the last build are listed. Sites that refuse automated checks (Yelp and the like) are counted, not called broken. No model needed.
+- **Network.** Records close in meaning but in different files (a rec and its place, a group and its resource, a constituent and its advocate) are candidates; the model keeps the ones a neighbor would want and says why. They land in `links.yml` by PR, and once merged, search results carry a `related:` line.
+- **History.** Three places a week, in rotation, searched on the Internet Archive and Wikimedia Commons. Only public-domain-by-date or licensed items; OpenSFHistory is linked, never fetched, per the data repo's own rule. The model picks at most one genuinely historical item per place and drafts a cited `archive/` note, by PR. Most weeks it picks nothing, on purpose.
+
+`npm run weekly -- --dry` runs everything without email or PRs; `--only gaps,freshness` picks jobs.
 
 ## The place pack: the neighborhood's data for other tools
 

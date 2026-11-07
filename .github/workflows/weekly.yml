@@ -1,0 +1,45 @@
+# The weekly background run: gaps research, freshness check, proposed cross-links, history notes.
+# One email to DIGEST_EMAILS, PRs on the data repo for links and archive notes. Mondays 7am Pacific.
+# Secrets to set on this repo: ANTHROPIC_API_KEY, VOYAGE_API_KEY, RESEND_API_KEY, GITHUB_APP_ID,
+# GITHUB_APP_PRIVATE_KEY, and the source keys (OUTERSUNSET_TODAY_ANON_KEY, COMMUNITY_SUPPLIES_ANON_KEY).
+name: weekly
+on:
+  schedule:
+    - cron: "0 15 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: "Dry run: no email, no PRs"
+        type: boolean
+        default: false
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Keep embeddings and source caches between runs
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: nagent-cache-${{ github.run_id }}
+          restore-keys: nagent-cache-
+      - run: npx tsx src/cli.ts weekly ${{ inputs.dry && '--dry' || '' }}
+        env:
+          DATA_REPO: https://github.com/The-Relational-Technology-Project/outer-sunset
+          SITE_URL: https://knowy.org
+          DIGEST_EMAILS: josh@relationaltechproject.org
+          MODEL: claude-haiku-5-5
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OUTERSUNSET_TODAY_ANON_KEY: ${{ secrets.OUTERSUNSET_TODAY_ANON_KEY }}
+          COMMUNITY_SUPPLIES_ANON_KEY: ${{ secrets.COMMUNITY_SUPPLIES_ANON_KEY }}

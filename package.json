@@ -22,7 +22,8 @@
     "vitals": "tsx src/cli.ts vitals",
     "golden": "tsx src/cli.ts golden",
     "search": "tsx src/cli.ts search",
-    "retrieval": "tsx src/cli.ts retrieval"
+    "retrieval": "tsx src/cli.ts retrieval",
+    "weekly": "tsx src/cli.ts weekly"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.6.0",

@@ -120,6 +120,10 @@ export class DenseIndex {
         }
     }
     get size() { return this.entries.length; }
+    /** A record's first chunk vector (the header and the start of its text), or undefined. */
+    vectorOf(id) {
+        return this.entries.find((e) => e.id === id)?.vecs[0];
+    }
     /** Records by best chunk similarity, highest first, above the floor. */
     search(query, opts) {
         const out = [];

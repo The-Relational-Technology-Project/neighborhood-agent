@@ -86,6 +86,7 @@ export async function loadSources(repo, cacheDir, opts = {}) {
         records.push(...recs);
     }
     const index = new SearchIndex(records, repo.corrections);
+    index.setLinks(repo.links);
     const embedding = await embedAll(index, cacheDir, opts.embedder);
     return { index, statuses, embedding };
 }

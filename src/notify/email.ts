@@ -17,8 +17,8 @@ export function emailConfigured(cfg: Config, repo: DataRepo): boolean {
 
 export interface Attachment { filename: string; content: Buffer }
 
-export async function emailStewards(cfg: Config, repo: DataRepo, msg: { subject: string; text: string; replyTo?: string; attachments?: Attachment[] }): Promise<void> {
-  const to = stewardAddresses(cfg, repo);
+export async function emailStewards(cfg: Config, repo: DataRepo, msg: { subject: string; text: string; replyTo?: string; attachments?: Attachment[]; to?: string[] }): Promise<void> {
+  const to = msg.to?.length ? msg.to : stewardAddresses(cfg, repo);
   if (!cfg.email.apiKey || !to.length) throw new Error("email is not configured");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

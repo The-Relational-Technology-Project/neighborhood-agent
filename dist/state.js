@@ -7,6 +7,7 @@ import path from "node:path";
 import { Agent } from "./agent/agent.js";
 import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
+import { GapLog } from "./jobs/gaps.js";
 import { config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
 import { embedAll, loadSources } from "./data/loader.js";
@@ -27,6 +28,8 @@ export class AppState {
     lastBuild;
     budget;
     log;
+    /** The agent's own search queries from exchanges that ended in "I don't know". */
+    gaps;
     limiter;
     github;
     agent;
@@ -36,6 +39,7 @@ export class AppState {
         this.cfg = cfg;
         this.budget = new Budget(cfg.cacheDir, cfg.dailyBudgetUsd, cfg.inputUsdPerMillion, cfg.outputUsdPerMillion);
         this.log = new QuestionLog(cfg.cacheDir);
+        this.gaps = new GapLog(cfg.cacheDir);
         this.limiter = new RateLimiter(cfg.rateLimitPerTenMinutes);
         this.github = new GitHub(cfg);
         this.embedder = makeEmbedder(cfg.embed);
@@ -43,6 +47,7 @@ export class AppState {
     async init(opts = {}) {
         await this.budget.load();
         await this.log.load();
+        await this.gaps.load();
         if (this.cfg.anthropicConfigured) {
             this.agent = new Agent(this.cfg, this.budget);
             this.classifier = this.agent.client;

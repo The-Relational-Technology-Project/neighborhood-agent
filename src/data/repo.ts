@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import YAML from "yaml";
 import { parseFrontmatter } from "./frontmatter.js";
-import type { Constituent, Correction, DataRepo, FrontmatterDoc, Person, Place, RecsFile, Door, Resource, SourceDef } from "./types.js";
+import type { Constituent, Correction, DataRepo, FrontmatterDoc, Link, Person, Place, RecsFile, Door, Resource, SourceDef } from "./types.js";
 
 const exec = promisify(execFile);
 
@@ -213,6 +213,7 @@ export async function loadRepo(root: string): Promise<DataRepo> {
     orgs: yamlList<Person>(peopleText, "orgs", "people.yml", loadErrors),
     places: yamlList<Place>(await readText(path.join(root, "places.yml")), "places", "places.yml", loadErrors),
     resources: yamlList<Resource>(await readText(path.join(root, "resources.yml")), "resources", "resources.yml", loadErrors),
+    links: yamlList<Link>(await readText(path.join(root, "links.yml")), "links", "links.yml", loadErrors).filter((l) => l && l.from && l.to).map((l) => ({ ...l, from: String(l.from), to: String(l.to) })),
     doors: yamlList<Door>(await readText(path.join(root, "doors.yml")), "doors", "doors.yml", loadErrors).filter((d) => d && d.group && (d.ok_to_point === true || String(d.ok_to_point).toLowerCase() === "yes")).map((d) => ({ ...d, moments: Array.isArray(d.moments) ? d.moments.map(String) : d.moments ? [String(d.moments)] : [] })),
     loadErrors,
     events: await readDocs(path.join(root, "events")),

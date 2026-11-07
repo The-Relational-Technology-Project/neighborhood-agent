@@ -9,6 +9,8 @@
  *   nagent sources          source statuses
  *   nagent golden [file]    run the golden questions (needs a model)
  *   nagent log-pr           open a PR adding new question-log rows to log/questions.md
+ *   nagent weekly           gaps research, freshness check, cross-links, archives; email + PRs
+ *                           (--dry: no email, no PRs; --only gaps,freshness,links,archive)
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -136,8 +138,22 @@ async function main() {
             console.log(`Opened ${pr.url}`);
             return;
         }
+        case "weekly": {
+            await state.init();
+            const { runWeekly } = await import("./jobs/weekly.js");
+            const dry = rest.includes("--dry");
+            const onlyArg = rest[rest.indexOf("--only") + 1];
+            const all = ["gaps", "freshness", "links", "archive"];
+            const only = rest.includes("--only") && onlyArg ? onlyArg.split(",") : [...all];
+            const r = await runWeekly(state, { email: !dry, openPrs: !dry, skip: all.filter((j) => !only.includes(j)) });
+            console.log(r.text);
+            console.log(r.emailed ? `Emailed ${r.emailed.join(", ")}.` : dry ? "Dry run: no email, no PRs." : "No email sent (RESEND_API_KEY or recipients missing).");
+            if (r.errors.length)
+                process.exitCode = 1;
+            return;
+        }
         default:
-            console.log("nagent index | ask \"q\" | search \"words\" | retrieval [file] | vitals | sources | golden [file] | log-pr");
+            console.log("nagent index | ask \"q\" | search \"words\" | retrieval [file] | vitals | sources | golden [file] | log-pr | weekly [--dry] [--only a,b]");
     }
 }
 main().catch((err) => { console.error(err instanceof Error ? err.message : err); process.exit(1); });

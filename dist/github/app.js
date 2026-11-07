@@ -108,22 +108,28 @@ export class GitHub {
         const r = await this.api(`/repos/${this.repo}/git/ref/heads/${branch}`, { auth: false });
         return r.object.sha;
     }
+    /** One PR from one file (path + content) or several (files). */
     async openPr(input) {
         if (!this.configured)
             throw new Error("GitHub App not configured");
+        const files = input.files ?? (input.path !== undefined && input.content !== undefined ? [{ path: input.path, content: input.content }] : []);
+        if (!files.length)
+            throw new Error("openPr: no files");
         const baseSha = await this.branchSha(input.base);
         const branch = `agent/${input.labels[0] ?? "change"}/${Date.now().toString(36)}`;
         await this.api(`/repos/${this.repo}/git/refs`, { method: "POST", body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha }) });
-        let sha;
-        try {
-            const existing = await this.api(`/repos/${this.repo}/contents/${input.path}?ref=${encodeURIComponent(branch)}`);
-            sha = existing.sha;
+        for (const f of files) {
+            let sha;
+            try {
+                const existing = await this.api(`/repos/${this.repo}/contents/${f.path}?ref=${encodeURIComponent(branch)}`);
+                sha = existing.sha;
+            }
+            catch { /* new file */ }
+            await this.api(`/repos/${this.repo}/contents/${f.path}`, {
+                method: "PUT",
+                body: JSON.stringify({ message: files.length > 1 ? `${input.title}: ${f.path}` : input.title, content: Buffer.from(f.content).toString("base64"), branch, ...(sha ? { sha } : {}) }),
+            });
         }
-        catch { /* new file */ }
-        await this.api(`/repos/${this.repo}/contents/${input.path}`, {
-            method: "PUT",
-            body: JSON.stringify({ message: input.title, content: Buffer.from(input.content).toString("base64"), branch, ...(sha ? { sha } : {}) }),
-        });
         const pr = await this.api(`/repos/${this.repo}/pulls`, {
             method: "POST",
             body: JSON.stringify({ title: input.title, head: branch, base: input.base, body: input.body }),

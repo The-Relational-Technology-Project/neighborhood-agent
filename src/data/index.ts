@@ -17,7 +17,7 @@ import MiniSearch from "minisearch";
 import type { Embedder } from "../search/embed.js";
 import { contentWords, isStopword, rrf, semanticWeight, signals } from "../search/fuse.js";
 import { DenseIndex, type VectorStore } from "../search/vectors.js";
-import type { Correction, NRecord, RecordKind } from "./types.js";
+import type { Correction, Link, NRecord, RecordKind } from "./types.js";
 
 export interface SearchOptions {
   kinds?: RecordKind[];
@@ -55,6 +55,7 @@ export class SearchIndex {
   private dense?: DenseIndex;
   private embedder?: Embedder;
   private queryCache = new Map<string, Float32Array>();
+  private links = new Map<string, Link[]>();
   /** Set after a query embedding fails, so the log doesn't repeat itself. */
   private semanticFailed?: string;
   readonly builtAt: string;
@@ -84,6 +85,34 @@ export class SearchIndex {
   attachVectors(store: VectorStore): void {
     this.embedder = store.embedder;
     this.dense = new DenseIndex(this.all(), store);
+  }
+
+  /** Cross-links from links.yml, looked up from either end. */
+  setLinks(links: Link[]): void {
+    this.links = new Map();
+    for (const l of links) {
+      for (const [a, b] of [[l.from, l.to], [l.to, l.from]] as const) {
+        if (!this.links.has(a)) this.links.set(a, []);
+        this.links.get(a)!.push({ ...l, from: a, to: b });
+      }
+    }
+  }
+
+  /** Records linked to this one, with why. Only links whose other end exists. */
+  related(id: string): Array<{ record: NRecord; why?: string }> {
+    const out: Array<{ record: NRecord; why?: string }> = [];
+    for (const l of this.links.get(id) ?? []) { const record = this.byId.get(l.to); if (record) out.push({ record, why: l.why }); }
+    return out;
+  }
+
+  /** The records closest in meaning to this one, other than itself. Needs vectors. */
+  neighbors(id: string, opts: { limit?: number; minSimilarity?: number; allow?: (r: NRecord) => boolean } = {}): Array<{ record: NRecord; similarity: number }> {
+    const vec = this.dense?.vectorOf(id);
+    if (!vec || !this.dense) return [];
+    return this.dense
+      .search(vec, { limit: (opts.limit ?? 10) + 1, minSimilarity: opts.minSimilarity ?? this.embedder?.minSimilarity ?? 0, allow: (other) => { if (other === id) return false; const r = this.byId.get(other); return Boolean(r && (!opts.allow || opts.allow(r))); } })
+      .map((h) => ({ record: this.byId.get(h.id)!, similarity: h.similarity }))
+      .slice(0, opts.limit ?? 10);
   }
 
   /** Whether this index can search by meaning (an embedder is attached and some record has a vector). */

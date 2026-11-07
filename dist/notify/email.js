@@ -7,7 +7,7 @@ export function emailConfigured(cfg, repo) {
     return Boolean(cfg.email.apiKey && stewardAddresses(cfg, repo).length);
 }
 export async function emailStewards(cfg, repo, msg) {
-    const to = stewardAddresses(cfg, repo);
+    const to = msg.to?.length ? msg.to : stewardAddresses(cfg, repo);
     if (!cfg.email.apiKey || !to.length)
         throw new Error("email is not configured");
     const res = await fetch("https://api.resend.com/emails", {

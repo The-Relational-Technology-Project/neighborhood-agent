@@ -8,6 +8,7 @@ import { Anthropic } from "@anthropic-ai/sdk/client";
 import { Agent } from "./agent/agent.js";
 import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
+import { GapLog } from "./jobs/gaps.js";
 import { config, type Config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
 import { embedAll, loadSources, type EmbeddingStatus, type SourceStatus } from "./data/loader.js";
@@ -29,6 +30,8 @@ export class AppState {
   lastBuild?: string;
   readonly budget: Budget;
   readonly log: QuestionLog;
+  /** The agent's own search queries from exchanges that ended in "I don't know". */
+  readonly gaps: GapLog;
   readonly limiter: RateLimiter;
   readonly github: GitHub;
   agent?: Agent;
@@ -38,6 +41,7 @@ export class AppState {
   constructor(readonly cfg: Config = config) {
     this.budget = new Budget(cfg.cacheDir, cfg.dailyBudgetUsd, cfg.inputUsdPerMillion, cfg.outputUsdPerMillion);
     this.log = new QuestionLog(cfg.cacheDir);
+    this.gaps = new GapLog(cfg.cacheDir);
     this.limiter = new RateLimiter(cfg.rateLimitPerTenMinutes);
     this.github = new GitHub(cfg);
     this.embedder = makeEmbedder(cfg.embed);
@@ -46,6 +50,7 @@ export class AppState {
   async init(opts: { force?: boolean } = {}): Promise<void> {
     await this.budget.load();
     await this.log.load();
+    await this.gaps.load();
     if (this.cfg.anthropicConfigured) {
       this.agent = new Agent(this.cfg, this.budget);
       this.classifier = this.agent.client;
