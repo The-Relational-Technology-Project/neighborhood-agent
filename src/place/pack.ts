@@ -113,6 +113,15 @@ export async function placePack(state: AppState, base: string) {
   const counts: Record<string, number> = {};
   for (const r of state.index.all()) if (PACK_KINDS.includes(r.kind)) counts[r.kind] = (counts[r.kind] ?? 0) + 1;
   return {
+    // The first fields follow Relational Builder's place.json (v1), so a crawler drawing the map of
+    // place-based software reads a pack like any published app. Everything after is the pack.
+    version: 1,
+    generator: "knowy-place-pack",
+    name: "Knowy Plover",
+    ...(info.center ? { lat: info.center.lat, lng: info.center.lng } : {}),
+    label: info.label,
+    precision: "neighborhood",
+    ...(info.catchment ? { catchment: { kind: "radius", miles: info.catchment.miles, label: info.catchment.label, source: "radius" } } : {}),
     pack: PACK_VERSION,
     generated_at: new Date().toISOString(),
     place: info,

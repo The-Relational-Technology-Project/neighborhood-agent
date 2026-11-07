@@ -45,6 +45,8 @@ describe("the place pack over MCP", () => {
     const { state } = await setup();
     const pack = await placePack(state, "https://example.org");
     expect(pack.mcp.url).toBe("https://example.org/mcp");
+    expect(pack.version).toBe(1);
+    expect(pack.label).toBeTruthy();
     expect(pack.rules).toEqual(RULES);
     expect(pack.sources.every((s) => s.status !== "excluded")).toBe(true);
     expect(pack.contribute.feed_formats.map((f) => f.name)).toContain("Calendar (iCalendar)");
