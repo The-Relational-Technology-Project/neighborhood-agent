@@ -210,8 +210,10 @@ describe("fusion and signals", () => {
 
   it("discounts a meaning match near the floor and trusts one well above it", () => {
     expect(semanticWeight(0.4, 0.4)).toBeCloseTo(0.4, 5);
-    expect(semanticWeight(0.65, 0.4)).toBe(1);
+    expect(semanticWeight(0.55, 0.4)).toBeCloseTo(1, 5);
     expect(semanticWeight(0.5, 0.4)).toBeCloseTo(0.8, 5);
+    expect(semanticWeight(0.9, 0.4)).toBe(1.5);
+    expect(semanticWeight(0.9, 0.4, 1)).toBe(1);
     const w = rrf([{ ids: ["a", "b"], weights: [0.5, 1] }]);
     expect(w.get("a")!).toBeCloseTo(0.5 / 61, 6);
     expect(w.get("b")!).toBeCloseTo(1 / 62, 6);

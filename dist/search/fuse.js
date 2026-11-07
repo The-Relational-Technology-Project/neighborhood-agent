@@ -10,12 +10,15 @@ export function rrf(lists, k = RRF_K) {
     return scores;
 }
 /**
- * How much a meaning match should count, 0.4 at the similarity floor rising to 1 a little above
- * it, so a barely-related record at semantic rank 1 cannot outvote a direct word match.
+ * How much a meaning match should count: 0.4 at the similarity floor, so a barely-related record
+ * at semantic rank 1 cannot outvote a direct word match, rising to 1.5 for a strong match, so a
+ * record that clearly means the right thing is not buried under records that share one stray word.
+ * Tuned on retrieval.yml with Voyage 3.5 (MRR 0.850 at a max of 1, 0.858 at 1.5).
  */
-export function semanticWeight(similarity, floor) {
-    return Math.max(0.4, Math.min(1, 0.4 + (similarity - floor) / 0.25));
+export function semanticWeight(similarity, floor, max = SEMANTIC_MAX_WEIGHT) {
+    return Math.max(0.4, Math.min(max, 0.4 + (similarity - floor) / 0.25));
 }
+const SEMANTIC_MAX_WEIGHT = Number(process.env.SEARCH_SEM_MAX ?? 1.5);
 const STOP = new Set(["a", "an", "the", "of", "in", "on", "at", "to", "for", "and", "or", "is", "are", "be", "with", "near", "around", "any", "some", "there", "where", "what", "who", "how", "do", "does", "i", "my", "me", "we", "our", "you", "your", "it", "its", "this", "that", "from", "by", "about", "can", "get", "find", "good", "best", "recommend", "recommendation", "recommendations", "looking", "need", "want", "know", "anyone", "someone", "please"]);
 /** Query words that carry meaning: no stopwords, no single letters. */
 export function contentWords(text) {

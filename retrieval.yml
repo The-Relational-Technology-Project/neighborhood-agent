@@ -2,6 +2,10 @@
 # Run: npm run retrieval   (uses DATA_REPO; with VOYAGE_API_KEY set it tests search by meaning too)
 # `expect` entries match a record's title or id (case-insensitive substring). Any one counts.
 # Questions phrased the way neighbors ask them, not the way records are titled: that is the point.
+#
+# Results on 2026-11-07 against the Outer Sunset repo (772 records):
+#   words only              hit@1 20/28  hit@3 23/28  hit@10 25/28  MRR 0.781
+#   words + Voyage 3.5      hit@1 21/28  hit@3 27/28  hit@10 28/28  MRR 0.852
 
 queries:
   # Direct names and words

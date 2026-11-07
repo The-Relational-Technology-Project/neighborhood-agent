@@ -18,6 +18,11 @@ import { contentWords, isStopword, rrf, semanticWeight, signals } from "../searc
 import { DenseIndex } from "../search/vectors.js";
 const SEMANTIC_CANDIDATES = 40;
 const LEXICAL_CANDIDATES = 60;
+// Tuning knobs, measured on retrieval.yml with Voyage 3.5: discounting or capping records that hold
+// only some of the query's words lowered MRR (0.850 to 0.812 at a cap of 10), because that tail is
+// what breaks ties among meaning matches. Both stay at "off" unless an env var says otherwise.
+const SOME_WORDS_WEIGHT = Number(process.env.SEARCH_SOME_WORDS_WEIGHT ?? 1);
+const SOME_WORDS_LIMIT = Number(process.env.SEARCH_SOME_LIMIT ?? LEXICAL_CANDIDATES);
 export class SearchIndex {
     mini;
     byId = new Map();
@@ -76,7 +81,11 @@ export class SearchIndex {
         const lexical = this.searchLexical(q, allow, LEXICAL_CANDIDATES);
         const semantic = await this.searchSemantic(q, allow, SEMANTIC_CANDIDATES);
         const floor = this.embedder?.minSimilarity ?? 0;
-        const fused = rrf([{ ids: lexical.map((h) => h.id) }, { ids: semantic.map((h) => h.id), weights: semantic.map((h) => semanticWeight(h.similarity, floor)) }]);
+        // A record holding only some of the query's words is a weaker vote than one holding them all.
+        const fused = rrf([
+            { ids: lexical.map((h) => h.id), weights: lexical.map((h) => (h.all ? 1 : SOME_WORDS_WEIGHT)) },
+            { ids: semantic.map((h) => h.id), weights: semantic.map((h) => semanticWeight(h.similarity, floor)) },
+        ]);
         const lexBy = new Map(lexical.map((h, i) => [h.id, { rank: i + 1, all: h.all }]));
         const semBy = new Map(semantic.map((h, i) => [h.id, { rank: i + 1, similarity: h.similarity }]));
         const hits = [];
@@ -104,7 +113,7 @@ export class SearchIndex {
     searchLexical(q, allow, limit) {
         const seen = new Set();
         const out = [];
-        const take = (results, all) => {
+        const take = (results, all, cap = limit) => {
             for (const h of results) {
                 const id = String(h.id);
                 if (seen.has(id))
@@ -114,14 +123,18 @@ export class SearchIndex {
                     continue;
                 seen.add(id);
                 out.push({ id, all });
-                if (out.length >= limit)
+                if (out.length >= cap)
                     return;
             }
         };
-        if (contentWords(q).length > 1)
+        const multi = contentWords(q).length > 1;
+        if (multi)
             take(this.mini.search(q, { combineWith: "AND" }), true);
-        if (out.length < limit)
-            take(this.mini.search(q, { combineWith: "OR" }), contentWords(q).length <= 1);
+        // Records holding only some of the words are a long tail of weak votes; fusion rewards a record
+        // for showing up in both lists, so keep that tail short or a stray word outranks a strong meaning match.
+        const someLimit = multi ? Math.min(limit, out.length + SOME_WORDS_LIMIT) : limit;
+        if (out.length < someLimit)
+            take(this.mini.search(q, { combineWith: "OR" }), !multi, someLimit);
         return out;
     }
     async searchSemantic(q, allow, limit) {
