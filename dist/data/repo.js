@@ -223,6 +223,7 @@ export async function loadRepo(root) {
         orgs: yamlList(peopleText, "orgs", "people.yml", loadErrors),
         places: yamlList(await readText(path.join(root, "places.yml")), "places", "places.yml", loadErrors),
         resources: yamlList(await readText(path.join(root, "resources.yml")), "resources", "resources.yml", loadErrors),
+        doors: yamlList(await readText(path.join(root, "doors.yml")), "doors", "doors.yml", loadErrors).filter((d) => d && d.group && (d.ok_to_point === true || String(d.ok_to_point).toLowerCase() === "yes")).map((d) => ({ ...d, moments: Array.isArray(d.moments) ? d.moments.map(String) : d.moments ? [String(d.moments)] : [] })),
         loadErrors,
         events: await readDocs(path.join(root, "events")),
         proposals: await readDocs(path.join(root, "proposals")),

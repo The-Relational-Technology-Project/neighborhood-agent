@@ -41,7 +41,7 @@ export function heuristicClassify(question, answer) {
         return "other";
     };
     const a = answer.toLowerCase();
-    return { topic: pick(), referral: /\b(talk to|reach|contact|ask |email|the folks at|start with)\b/.test(a) || /https?:\/\//.test(a), dont_know: /i don't know|i do not know|i don’t know/.test(a) };
+    return { topic: pick(), referral: /\b(talk to|reach|contact|ask |email|the folks at|start with)\b/.test(a) || /https?:\/\//.test(a), dont_know: /i don.t know|i do not know|i don’t know|i don.t have (that|this|it)|i don’t have (that|this|it)/.test(a) };
 }
 export async function classify(client, model, question, answer) {
     const fallback = heuristicClassify(question, answer);

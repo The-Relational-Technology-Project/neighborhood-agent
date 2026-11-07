@@ -110,6 +110,17 @@ export interface Place {
   tags?: string[];
 }
 
+/** A group that's glad to meet people at a life change (doors.yml). */
+export interface Door {
+  group: string;
+  moments: string[];
+  what?: string;
+  how_to_join?: string;
+  url?: string;
+  ok_to_point?: string | boolean;
+  confirmed?: string;
+}
+
 export interface Resource {
   name: string;
   what: string;
@@ -152,6 +163,8 @@ export interface DataRepo {
   orgs: Person[];
   places: Place[];
   resources: Resource[];
+  /** Groups that welcome people at life changes, from doors.yml. Only ok_to_point: yes are used. */
+  doors: Door[];
   events: FrontmatterDoc[];
   proposals: FrontmatterDoc[];
   corrections: Correction[];

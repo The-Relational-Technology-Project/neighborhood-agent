@@ -32,7 +32,7 @@ export function heuristicClassify(question: string, answer: string): Classificat
     return "other";
   };
   const a = answer.toLowerCase();
-  return { topic: pick(), referral: /\b(talk to|reach|contact|ask |email|the folks at|start with)\b/.test(a) || /https?:\/\//.test(a), dont_know: /i don't know|i do not know|i don’t know/.test(a) };
+  return { topic: pick(), referral: /\b(talk to|reach|contact|ask |email|the folks at|start with)\b/.test(a) || /https?:\/\//.test(a), dont_know: /i don.t know|i do not know|i don’t know|i don.t have (that|this|it)|i don’t have (that|this|it)/.test(a) };
 }
 
 export async function classify(client: Anthropic | undefined, model: string, question: string, answer: string): Promise<Classification> {

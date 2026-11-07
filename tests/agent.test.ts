@@ -173,3 +173,25 @@ describe("plover season", () => {
     expect(ploverStatus("2026-10-01", "03-01", "08-31").inSeason).toBe(false);
   });
 });
+
+describe("doors for life changes", () => {
+  it("loads only groups that said yes and puts them in the prompt", async () => {
+    const fs = await import("node:fs/promises");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const { loadRepo } = await import("../src/data/repo.js");
+    const { buildSystem, BEHAVIOR } = await import("../src/agent/prompt.js");
+    const { FIXTURE } = await import("./helpers.js");
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "doors-"));
+    await fs.cp(FIXTURE, dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "doors.yml"), "doors:\n  - group: Parents Circle\n    moments: new-parent\n    how_to_join: Come Tuesday.\n    ok_to_point: yes\n  - group: Not Asked Yet\n    moments: [new-parent]\n    ok_to_point: no\n");
+    const repo = await loadRepo(dir);
+    expect(repo.doors.map((d) => d.group)).toEqual(["Parents Circle"]);
+    expect(repo.doors[0].moments).toEqual(["new-parent"]);
+    const text = buildSystem(repo)[0].text;
+    expect(text).toContain("Parents Circle (good for: new-parent)");
+    expect(text).not.toContain("Not Asked Yet");
+    expect(BEHAVIOR).toContain("Never guess a life stage");
+    expect(BEHAVIOR).toContain("Point to the group, never to a member");
+  });
+});
