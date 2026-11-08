@@ -8,12 +8,15 @@ const COLLECTIONS = [
     ["plans", "proposal"],
     ["notices", "note"],
     ["dreams", "proposal"],
+    ["menus", "note"],
+    ["news_items", "archive-note"],
 ];
+const KNOWN = new Set(COLLECTIONS.map(([c]) => c));
 export function fillDates(q, now = new Date()) {
-    return q.replace(/\{today(?:\+(\d+))?\}/g, (_m, n) => {
+    return q.replace(/\{today(?:([+-])(\d+))?\}/g, (_m, sign, n) => {
         const d = new Date(now);
         if (n)
-            d.setDate(d.getDate() + Number(n));
+            d.setDate(d.getDate() + (sign === "-" ? -1 : 1) * Number(n));
         return localDate(d);
     });
 }
@@ -23,7 +26,7 @@ function urls(ctx) {
     const withQuery = (u) => (query ? `${u}${u.includes("?") ? "&" : "?"}${query}` : u);
     const endpoints = c.endpoints;
     if (endpoints && Object.keys(endpoints).length)
-        return Object.entries(endpoints).map(([coll, u]) => [coll, withQuery(String(u))]);
+        return Object.entries(endpoints).map(([name, u]) => [name, withQuery(fillDates(String(u)))]);
     const base = String(c.base_url ?? "").replace(/\/$/, "");
     if (!base)
         return [];
@@ -37,14 +40,17 @@ export const neighborhoodApiAdapter = {
             throw new Error("neighborhood-api: set base_url or endpoints");
         const out = {};
         let lastErr;
-        for (const [coll, url] of list) {
+        for (const [name, url] of list) {
             try {
                 const res = await ctx.http(url);
                 if (!res.ok)
-                    throw new Error(`${coll} ${res.status}`);
+                    throw new Error(`${name} ${res.status}`);
                 const body = (await res.json());
                 const b = body;
-                out[coll] = Array.isArray(body) ? body : (b?.[coll] ?? b?.data ?? []);
+                const keyed = !Array.isArray(body) && b ? Object.keys(b).find((k) => KNOWN.has(k) && Array.isArray(b[k])) : undefined;
+                const coll = KNOWN.has(name) ? name : (keyed ?? name);
+                const items = Array.isArray(body) ? body : (b?.[coll] ?? b?.data ?? []);
+                out[coll] = [...(out[coll] ?? []), ...items];
             }
             catch (err) {
                 lastErr = err; // a missing collection is fine as long as one works
@@ -60,6 +66,10 @@ export const neighborhoodApiAdapter = {
         const out = [];
         for (const [coll, kind] of COLLECTIONS) {
             for (const item of data[coll] ?? []) {
+                if (coll === "menus" || coll === "news_items") {
+                    out.push(coll === "menus" ? menuRecord(item, src, ctx.fetchedAt) : newsRecord(item, src, ctx.fetchedAt));
+                    continue;
+                }
                 const loc = item.location;
                 // Spec times carry an offset; show them on the neighborhood's wall clock.
                 const startIso = item.start ? String(item.start) : undefined;
@@ -87,4 +97,52 @@ export const neighborhoodApiAdapter = {
         return out;
     },
 };
+function str(v) {
+    return v == null ? "" : String(v);
+}
+function cats(item) {
+    return Array.isArray(item.category) ? item.category.map(String) : item.category ? [String(item.category)] : [];
+}
+/** A dated menu: Arizmendi's pizza of the day, the SFUSD school lunch. */
+function menuRecord(item, src, fetchedAt) {
+    const category = cats(item);
+    const name = str(item.name);
+    const date = str(item.date).slice(0, 10);
+    const isPizza = category.includes("pizza");
+    const loc = item.location;
+    const where = loc ? [loc.name, loc.address].filter(Boolean).map(String).join(", ") : "";
+    const items = Array.isArray(item.items) ? item.items.map(String) : [];
+    const what = items.length > 1 ? items.join("; ") : str(item.description) || items[0] || "";
+    return {
+        id: `${src.id}:menus:${str(item.id) || `${name}:${date}`}`,
+        kind: "note",
+        title: isPizza ? `${name} daily pizza, ${date}` : `${name}, ${date}`,
+        text: [what + (item.price ? ` (${str(item.price)})` : ""), str(item.hours), where].filter(Boolean).join(". "),
+        date: date || undefined,
+        location: where || undefined,
+        url: str(item.url) || src.url,
+        source: src,
+        fetched_at: fetchedAt,
+        tags: [...category, "menu"],
+        extra: item,
+    };
+}
+/** A local news headline, with the outlet it came from. */
+function newsRecord(item, src, fetchedAt) {
+    const outlet = str(item.source?.name);
+    const published = str(item.published_at);
+    const date = published && !Number.isNaN(Date.parse(published)) ? toLocalIso(new Date(published)).slice(0, 10) : published.slice(0, 10);
+    return {
+        id: `${src.id}:news_items:${str(item.id) || str(item.url)}`,
+        kind: "archive-note",
+        title: str(item.name ?? item.title),
+        text: `${str(item.description)}${outlet ? ` (${outlet})` : ""}`.trim(),
+        date: date || undefined,
+        url: str(item.url) || src.url,
+        source: src,
+        fetched_at: fetchedAt,
+        tags: [...cats(item), "news"],
+        extra: item,
+    };
+}
 //# sourceMappingURL=neighborhood-api.js.map

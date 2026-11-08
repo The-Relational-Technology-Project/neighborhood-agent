@@ -81,6 +81,24 @@ describe("neighborhood-api adapter", () => {
   it("fills {today} and {today+N} in queries", () => {
     const now = new Date("2026-11-06T20:00:00Z");
     expect(fillDates("start_after={today}&start_before={today+30}", now)).toBe("start_after=2026-11-06&start_before=2026-12-06");
+    expect(fillDates("start_after={today-7}", now)).toBe("start_after=2026-10-30");
+  });
+
+  it("files menu and news feeds by the collection they return, whatever the endpoint is called", async () => {
+    const bodies: Record<string, unknown> = {
+      pizza: { menus: [{ id: "p1", name: "Arizmendi Bakery", date: "2026-11-08", description: "spinach, asiago", items: ["spinach, asiago"], category: ["pizza"], location: { name: "1331 9th Ave" }, hours: "11am until sold out", url: "https://arizmendi/pizza" }] },
+      lunch: { menus: [{ id: "l1", name: "SFUSD School Lunch", date: "2026-11-09", description: "a; b", items: ["Chicken Chow Mein", "Penne Pasta"], category: ["school_lunch"], hours: "Lunch" }] },
+      news: { news_items: [{ id: "n1", name: "Wiener wins", description: "He won.", category: ["government"], published_at: "2026-11-05T01:15:49+00:00", url: "https://ml/x", source: { name: "Mission Local" } }] },
+    };
+    const c = { ...ctx({ id: "ost", name: "outersunset.today", config: { endpoints: { pizza: "https://f/pizza?start_after={today}", lunch: "https://f/lunch", news: "https://f/news" } } }), http: (async (u: string) => ({ ok: true, json: async () => bodies[new URL(u).pathname.slice(1)] })) as unknown as AdapterContext["http"] };
+    const raw = (await neighborhoodApiAdapter.fetch(c)) as Record<string, unknown[]>;
+    expect(Object.keys(raw).sort()).toEqual(["menus", "news_items"]);
+    expect(raw.menus).toHaveLength(2);
+    const recs = neighborhoodApiAdapter.normalize(raw, c);
+    expect(recs[0]).toMatchObject({ kind: "note", title: "Arizmendi Bakery daily pizza, 2026-11-08", date: "2026-11-08", text: "spinach, asiago. 11am until sold out. 1331 9th Ave" });
+    expect(recs[0].tags).toEqual(["pizza", "menu"]);
+    expect(recs[1]).toMatchObject({ title: "SFUSD School Lunch, 2026-11-09", text: "Chicken Chow Mein; Penne Pasta. Lunch" });
+    expect(recs[2]).toMatchObject({ kind: "archive-note", title: "Wiener wins", text: "He won. (Mission Local)", date: "2026-11-04", url: "https://ml/x" });
   });
 
   it("maps the spec's collections", () => {
