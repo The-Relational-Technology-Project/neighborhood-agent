@@ -116,6 +116,8 @@ button,a,textarea{-webkit-tap-highlight-color:rgba(231,157,27,.18)}
 .vline{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:13.5px;color:var(--quiet);margin:0 auto 4px;max-width:520px}
 .vline b{color:var(--ink);font-weight:700}
 .vline a{color:var(--quiet);text-decoration:none}
+.promise{font-size:13.5px;line-height:1.5;color:var(--quiet);margin:10px auto 2px;max-width:620px;text-wrap:balance}
+.promise a{color:var(--quiet);text-decoration-color:var(--brown);white-space:nowrap}
 .msg{display:flex;margin:0 0 12px}
 .msg .who{display:none}
 .msg.a{justify-content:flex-start}
