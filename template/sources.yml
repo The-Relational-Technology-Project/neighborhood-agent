@@ -1,0 +1,38 @@
+# Every source the agent reads. If it isn't here, the agent doesn't know it.
+#
+# Fields
+#   id        short handle; adapters in the code repo are matched by `adapter`
+#   name      how the agent names the source in an answer
+#   about     one plain line for the sources page: what this source tells the agent
+#   url       a page a person can open to check for themselves
+#   type      api | feed | page | repo-file
+#   adapter   which adapter reads it (omit = listed but not wired yet)
+#   refresh   how often the agent refetches
+#   license   permission note. If a source doesn't allow fetching, leave it out and say so here
+#   config    adapter settings. Secrets never go here; they go in the server's environment
+#   status    live | planned | excluded
+#
+# Start with only the notes themselves. Add a source when a steward has read it and
+# knows who keeps it. For a house, this one entry may be all you ever need.
+
+sources:
+  - id: repo
+    name: the place's notes
+    about: Events, places, people who agreed to be listed, proposals, and corrections that stewards reviewed.
+    url: URL OF THE AGENT'S SOURCES PAGE
+    type: repo-file
+    adapter: repo
+    refresh: 5m
+    status: live
+
+  # A shared calendar, when you have one:
+  # - id: calendar
+  #   name: NAME PEOPLE CALL IT
+  #   about: What's on, from the shared calendar.
+  #   url: PUBLIC PAGE FOR THE CALENDAR
+  #   type: feed
+  #   adapter: ics
+  #   refresh: 1h
+  #   status: live
+  #   config:
+  #     ics_url: PUBLIC ICAL ADDRESS

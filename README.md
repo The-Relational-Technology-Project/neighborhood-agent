@@ -92,6 +92,8 @@ You don't need to touch this repo. Everything you govern is in the data repo:
 
 ## Forking for another neighborhood
 
+Not a developer? [docs/REMIX.md](docs/REMIX.md) is the half-page version: start a Knowy for your place in Relational Builder, no code. [docs/STEWARDING.md](docs/STEWARDING.md) is the stewards' guide, and `template/` is a blank set of notes for a house, a block, a co-op or a neighborhood.
+
 The fork test in this repo (`fixtures/elsewhere/`, used by `npm test`) is a complete data repo for a fictional neighborhood. It runs against the same code with only `DATA_REPO` changed.
 
 1. Create a new data repo. Copy the structure of [outer-sunset](https://github.com/The-Relational-Technology-Project/outer-sunset) or of `fixtures/elsewhere/`: `place.md`, `STEWARDS.md`, `sources.yml`, `people.yml`, `places.yml`, `resources.yml`, `constituents/`, `events/`, `proposals/`, `corrections/`, `archive/`, `log/questions.md`.
@@ -125,6 +127,9 @@ dist/                  compiled output, committed for Vercel
   web/                 layout, pages, the chat script
   safety/              injection scanner
 fixtures/elsewhere/    a fictional neighborhood's data repo (the fork test)
+template/              a blank data repo to copy for a new place
+docs/                  REMIX.md, STEWARDING.md, commons-notes.md
+.reltech.yml           manifest for the relational tech network, with the build prompt
 golden.yml             the acceptance questions
 ```
 

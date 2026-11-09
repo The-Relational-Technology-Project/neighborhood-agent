@@ -1,0 +1,9 @@
+# Doors: groups that are glad to meet people at a life change (a new baby, a new move).
+# The agent offers one or two, once, when someone mentions the moment. It points to the
+# group, never to a member.
+#
+# Fields: group, moments, what, how_to_join, url,
+#         ok_to_point (yes only when the group is public or said the agent may point people there),
+#         confirmed (when, and how)
+
+doors: []

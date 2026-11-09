@@ -1,0 +1,9 @@
+# Things people here already built or share. The agent points to these before
+# suggesting anything new.
+
+resources: []
+#  - name: NAME
+#    what: ONE LINE
+#    url: WHERE TO FIND IT
+#    answers: [QUESTIONS IT ANSWERS, IN PEOPLE'S WORDS]
+#    how_to_use: THE FIRST STEP
