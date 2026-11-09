@@ -40,8 +40,8 @@ export function homePage(state, signs) {
         : `<h1>${esc(siteName(state))}</h1>`;
     const body = `
 <div class="chat" id="log" role="log" aria-live="polite">
-  <div class="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}${vitalLine(signs)}</div>
-  <div class="msg a"><span class="who a">${esc(siteName(state))}</span><span class="txt">${ready ? "Ask me anything about the neighborhood. I'll tell you where I got it." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
+  <div class="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}${vitalLine(signs)}<p class="promise">Looked after by neighbors · reads only <a href="/sources">public sources</a> · keeps nothing you type · <a href="/about">how it works</a></p></div>
+  <div class="msg a"><span class="who a">${esc(siteName(state))}</span><span class="txt">${ready ? "Ask me something about the neighborhood! I'll share what I know and point you to neighbors." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
 <div class="composer">
 ${ready ? `<div class="suggest" id="suggest">${SUGGESTIONS.map((q) => `<button type="button">${esc(q)}</button>`).join("")}</div>` : ""}
