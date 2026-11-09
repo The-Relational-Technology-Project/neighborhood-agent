@@ -31,7 +31,7 @@ function vitalLine(signs: VitalSign[]): string {
   return `<div class="vline">${list.map((s) => `<span><b>${esc(s.label)}</b> <a href="/sources" title="${esc(s.source.name)}">${esc(short(s))}</a></span>`).join("")}</div>`;
 }
 
-const SUGGESTIONS = ["What's happening this weekend?", "How's the ocean today?", "Who should I talk to about meeting neighbors?", "I want to add an event"];
+const SUGGESTIONS = ["Who should I talk to about meeting neighbors?", "What's happening this weekend?", "How's the ocean today?", "I want to add an event"];
 
 export function vitalsHtml(signs: VitalSign[]): string {
   if (!signs.length) return "";
