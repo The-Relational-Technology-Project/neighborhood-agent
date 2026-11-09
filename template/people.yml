@@ -1,0 +1,22 @@
+# People and groups the agent may point to.
+#
+# Rule: a person goes here only with their yes, for this purpose. Until then, list the
+# group and its public contact, not a person. The agent refuses to say where anyone lives.
+#
+# Fields: name, org, role, reach (a public address they chose), topics (what to send them),
+#         listed (date), consent (how they said yes)
+
+people: []
+#  - name: NAME
+#    org: GROUP
+#    role: WHAT THEY DO HERE
+#    reach: PUBLIC CONTACT THEY CHOSE
+#    topics: [WHAT TO SEND THEM]
+#    listed: YYYY-MM-DD
+#    consent: HOW AND WHEN THEY SAID YES
+
+orgs: []
+#  - name: GROUP NAME
+#    role: WHAT IT DOES
+#    reach: PUBLIC PAGE OR ADDRESS
+#    topics: [WHAT TO SEND THEM]

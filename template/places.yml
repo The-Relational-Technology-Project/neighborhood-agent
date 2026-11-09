@@ -1,0 +1,12 @@
+# Places people ask about. Leave hours as null when nobody has checked; the agent
+# will not guess.
+
+places: []
+#  - name: NAME
+#    address: ADDRESS, OR WHERE IN THE HOUSE
+#    what: ONE LINE
+#    url: ITS OWN PAGE
+#    hours: "WHAT THE SIGN SAYS"
+#    hours_source: "door sign"
+#    last_verified: YYYY-MM-DD
+#    tags: [WORDS PEOPLE SEARCH BY]
