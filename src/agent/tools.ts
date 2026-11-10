@@ -123,7 +123,7 @@ export function formatRecord(r: NRecord): string {
     `id: ${r.id}`,
     when,
     r.location ? `where: ${r.location}` : "",
-    r.text ? r.text.slice(0, r.kind === "archive-note" || r.kind === "knowledge" ? 1600 : 700) : "",
+    r.text ? r.text.slice(0, r.kind === "archive-note" || r.kind === "knowledge" ? 2400 : 700) : "",
     `source: ${r.source.name} ${r.url ?? r.source.url}`,
     `fetched: ${r.fetched_at.slice(0, 16).replace("T", " ")}${r.verified_at ? `, verified ${r.verified_at}` : r.verified_at === null ? ", never verified by a person" : ""}`,
     r.corrections?.length ? `CORRECTED by a neighbor on ${r.corrections.map((c) => c.date).join(", ")} (see text)` : "",
