@@ -8,6 +8,7 @@ import { toFrontmatter } from "../data/frontmatter.js";
 import { localDate } from "../data/index.js";
 import { slug } from "../adapters/types.js";
 import { classifySuggestion } from "./suggest.js";
+export const DRAFT_KINDS = ["event", "correction", "proposal", "source", "knowledge", "knower"];
 export const drafts = new Map();
 const DRAFT_TTL_MS = 60 * 60 * 1000;
 function sweep() {
@@ -89,6 +90,28 @@ export function makeDraft(input, today = localDate()) {
             why = `A neighbor suggested something Knowy could read. ${kind.label}: ${kind.hint}`;
             break;
         }
+        case "knowledge": {
+            const what = clean(f.what) || "(not given)";
+            const question = clean(f.question);
+            const name = clean(f.title) || question || what.split(/[.\n]/)[0];
+            const by = clean(f.shared_by) || "a neighbor";
+            path = `knowledge/${today}-${slug(name) || "note"}.md`;
+            content = toFrontmatter({ title: name.slice(0, 120), ...(question ? { question } : {}), shared_by: by, ...(clean(f.how_known) ? { how_known: clean(f.how_known) } : {}), shared: today, license: "CC BY 4.0" }, what);
+            title = `Knowledge: ${name.slice(0, 80)}`;
+            summary = [["About", name.slice(0, 120)], ["Answering", question], ["What you know", what], ["How you know", clean(f.how_known)], ["Credited to", by]];
+            why = "A neighbor shared something they know, as a gift to the neighborhood's commons. Check that it names no private person and reads as one neighbor's account; Knowy will pass it on as that.";
+            break;
+        }
+        case "knower": {
+            const as = clean(f.described_as) || "a neighbor";
+            const ref = clean(f.ref);
+            path = `knowers/${slug(as) || "a-neighbor"}-${slug(ref).slice(-6) || "new"}.md`;
+            content = toFrontmatter({ described_as: as, knows: clean(f.knows) || "(not given)", since: today, status: "active", ref }, "");
+            title = `Neighbor to ask: ${as.slice(0, 80)}`;
+            summary = [["Described as", as], ["Knows about", clean(f.knows)]];
+            why = "A neighbor offered to be asked about what they know, and confirmed it from their own email. Their name and address are held privately and are not in this file; `ref` is an opaque handle. Check that the description and the topics say nothing private, then merge so Knowy can pass questions to them. To pause them later, set `status: paused`.";
+            break;
+        }
         case "proposal": {
             const name = clean(f.title) || "A proposal";
             path = `proposals/${today}-${slug(name) || "proposal"}.md`;
@@ -119,7 +142,7 @@ export function makeDraft(input, today = localDate()) {
             `**What the neighbor asked for, in their words**\n\n> ${ask.replace(/\n/g, "\n> ")}`,
             `**What the agent changed**\n\nAdds \`${path}\`.`,
             `**Why**\n\n${why}`,
-            `The neighbor saw this exact content and said yes. A steward reviews and merges; nothing is live until then. Opened by the neighborhood agent.`,
+            `The neighbor saw this and said yes. A steward reviews and merges; nothing is live until then. Opened by the neighborhood agent.`,
         ].join("\n\n"),
     };
     drafts.set(draft.id, draft);
@@ -129,7 +152,7 @@ export function makeDraft(input, today = localDate()) {
  * A draft can also travel with the client, signed, so "Yes, open the PR" works on hosts that don't
  * keep memory between requests. The secret comes from DRAFT_SECRET, else from the API key's hash.
  */
-function secret() {
+export function secret() {
     return process.env.DRAFT_SECRET || createHmac("sha256", "neighborhood-agent").update(process.env.ANTHROPIC_API_KEY ?? "unsigned").digest("hex");
 }
 export function signDraft(d) {
@@ -147,7 +170,7 @@ export function verifyDraft(token) {
         return undefined;
     try {
         const d = JSON.parse(Buffer.from(payload, "base64url").toString());
-        if (!d.path || !d.content || !["event", "correction", "proposal", "source"].includes(d.kind))
+        if (!d.path || !d.content || !DRAFT_KINDS.includes(d.kind))
             return undefined;
         if (Date.parse(d.created_at) < Date.now() - DRAFT_TTL_MS)
             return undefined;

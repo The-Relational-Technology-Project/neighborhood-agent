@@ -5,7 +5,7 @@
 import { Anthropic } from "@anthropic-ai/sdk/client";
 import type { Config } from "../config.js";
 import { buildSystem } from "./prompt.js";
-import { runTool, toolDefinitions, type ToolContext } from "./tools.js";
+import { runTool, toolDefinitions, type AskCard, type ToolContext } from "./tools.js";
 import type { Draft } from "./drafts.js";
 import type { Budget } from "./budget.js";
 
@@ -15,6 +15,7 @@ export interface AgentEvents {
   onText?: (delta: string) => void;
   onTool?: (name: string, input: unknown) => void;
   onDraft?: (d: Draft) => void;
+  onAsk?: (a: AskCard) => void;
 }
 
 export interface AgentResult {
@@ -44,7 +45,7 @@ export class Agent {
 
     const toolsUsed: string[] = [];
     const draftsMade: Draft[] = [];
-    const ctx: ToolContext = { ...tools, onDraft: (d) => { draftsMade.push(d); ev.onDraft?.(d); tools.onDraft?.(d); } };
+    const ctx: ToolContext = { ...tools, onDraft: (d) => { draftsMade.push(d); ev.onDraft?.(d); tools.onDraft?.(d); }, onAsk: (a) => { ev.onAsk?.(a); tools.onAsk?.(a); } };
     let fullText = "";
     let stop: string | null = null;
     const usage = { input_tokens: 0, output_tokens: 0 };

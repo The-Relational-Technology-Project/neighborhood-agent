@@ -27,7 +27,7 @@ describe("neighbor-facing copy", () => {
     try { await fs.access(OUTER_SUNSET); root = OUTER_SUNSET; } catch { /* fixture only */ }
     const state = new AppState({ ...cfg, dataRepo: root });
     await state.rebuild();
-    const neighborPages = [pages.homePage(state, []), pages.aboutPage(state), pages.sourcesPage(state, []), pages.proposalsPage(state, []), pages.correctPage(state, []), pages.contactPage(state, "email")];
+    const neighborPages = [pages.homePage(state, []), pages.aboutPage(state), pages.sourcesPage(state, []), pages.proposalsPage(state, []), pages.correctPage(state, []), pages.contactPage(state, "email"), (await import("../src/web/commons.js")).commonsPage(state, { relay: true, canSend: true })];
     for (const html of neighborPages) {
       const visible = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, " ");
       expect(visible).not.toMatch(/pull request|\bPRs?\b|\brepo\b|GitHub|\.ya?ml\b|\.md\b/i);

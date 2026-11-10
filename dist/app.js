@@ -14,6 +14,7 @@ import { getVitalSigns } from "./vitals/index.js";
 import { handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
+import { askCard, registerCommons, relayOn } from "./knowers/routes.js";
 import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage, stewardsPage } from "./web/pages.js";
 export function createApp(state) {
     const app = new Hono();
@@ -52,7 +53,7 @@ export function createApp(state) {
         let queue = [];
         let queueError;
         try {
-            queue = (await cachedPrs("")).filter((p) => p.labels.some((l) => ["event", "correction", "proposal", "source", "log", "contact"].includes(l)) || /^(Event|Correction|Proposal|Source|Question log):/.test(p.title));
+            queue = (await cachedPrs("")).filter((p) => p.labels.some((l) => ["event", "correction", "proposal", "source", "knowledge", "knower", "log", "contact"].includes(l)) || /^(Event|Correction|Proposal|Source|Knowledge|Neighbor to ask|Question log):/.test(p.title));
         }
         catch (err) {
             queueError = err.message;
@@ -62,6 +63,7 @@ export function createApp(state) {
         return c.html(stewardsPage(state, queue, queueError, {
             github: gh.ok, githubDetail: gh.detail, email: emailConfigured(state.cfg, state.repo), emailTo: stewardAddresses(state.cfg, state.repo),
             model: state.agent ? state.cfg.model : undefined, spent: state.budget.spent, limit: state.budget.limit,
+            contacts: relayOn(state) ? await state.contacts.check() : { ok: false, detail: "needs RESEND_API_KEY, and DRAFT_SECRET or the model key" }, knowers: state.repo.knowers.length,
             sha: state.repo.sha, built: state.lastBuild, loadErrors: state.loadErrors, log: state.log.all()[week] ?? {}, week,
         }));
     });
@@ -143,9 +145,10 @@ export function createApp(state) {
         return streamSSE(c, async (stream) => {
             const send = (event, data) => stream.writeSSE({ event, data: JSON.stringify(data) });
             try {
-                const result = await state.agent.respond(messages, { repo: state.repo, index: state.index, log: state.log }, {
+                const result = await state.agent.respond(messages, { repo: state.repo, index: state.index, log: state.log, relay: relayOn(state) }, {
                     onText: (d) => void send("text", d),
                     onTool: (name) => void send("tool", name),
+                    onAsk: (a) => void send("ask", askCard(a)),
                     onDraft: (d) => void send("draft", { id: d.id, kind: d.kind, summary: d.summary, token: signDraft(d) }),
                 });
                 await send("done", { tools: result.tools_used });
@@ -243,7 +246,7 @@ export function createApp(state) {
         let emailed = false;
         if (emailConfigured(state.cfg, state.repo)) {
             const addUrl = `${state.github.repoUrl}/new/${state.cfg.dataRepoBranch}?filename=${encodeURIComponent(draft.path)}&value=${encodeURIComponent(draft.content)}`;
-            const noun = { event: "New event", correction: "Correction", proposal: "Proposal", source: "Suggested source" }[draft.kind];
+            const noun = { event: "New event", correction: "Correction", proposal: "Proposal", source: "Suggested source", knowledge: "Something to share", knower: "An offer to be asked" }[draft.kind];
             const lines = [
                 `A neighbor sent this through Knowy.`, "", ...draft.summary.map(([k, v]) => `${k}: ${v}`), "", `In their words: ${draft.ask}`,
                 ...(reach ? ["", `How to reach them (not stored anywhere public): ${reach}`] : []),
@@ -253,7 +256,7 @@ export function createApp(state) {
                 "", "The file:", `${draft.path}`, "", draft.content,
             ];
             try {
-                await emailStewards(state.cfg, state.repo, { subject: `${noun} from a neighbor: ${draft.title.replace(/^(Event|Correction|Proposal|Source):\s*/, "")}${prUrl ? "" : " (GitHub action needed)"}`, text: lines.join("\n"), replyTo: reach && /@/.test(reach) ? reach : undefined, attachments: attachment ? [attachment] : undefined });
+                await emailStewards(state.cfg, state.repo, { subject: `${noun} from a neighbor: ${draft.title.replace(/^(Event|Correction|Proposal|Source|Knowledge|Neighbor to ask):\s*/, "")}${prUrl ? "" : " (GitHub action needed)"}`, text: lines.join("\n"), replyTo: reach && /@/.test(reach) ? reach : undefined, attachments: attachment ? [attachment] : undefined }, state.mail);
                 emailed = true;
             }
             catch (err) {
@@ -262,6 +265,7 @@ export function createApp(state) {
         }
         return Boolean(prUrl || emailed);
     }
+    registerCommons(app, state, { clientIp, siteBase, sendToStewards: (d) => sendToStewards(d), canSend: () => contactMode() !== "none" });
     /** GitHub webhook: rebuild when the data repo's branch moves. */
     app.post("/api/webhook/github", async (c) => {
         const raw = await c.req.text();

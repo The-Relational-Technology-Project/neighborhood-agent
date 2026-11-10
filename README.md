@@ -12,6 +12,8 @@ This repo is the code. The neighborhood's data lives in a separate repo that the
 - **Public data only, and nothing kept.** The agent reads sources listed in `sources.yml` and nothing else. No accounts, no memory of conversations. The only things that last are a change a neighbor chose to make public (a PR) and one anonymous row per exchange in the question log.
 - **Good friction.** The agent never writes to the neighborhood directly. It drafts; the neighbor sees the exact file and taps yes; a PR opens; a steward merges.
 - **Humility is structural.** Every factual claim carries its source and fetch time. Corrections in the repo beat fetched data. Unknown hours are unknown.
+- **The full story lives with people.** The agent holds the start of a story, with sources. Then it helps you ask a neighbor: someone who offered to be asked, a group, or the stewards. It passes the question along by email without either side's address touching the public record.
+- **Knowledge is a gift, and the notes are a commons.** What a neighbor shares is credited the way they choose, read by a steward, and then open to everyone under CC BY 4.0. Nobody is signed up or pushed.
 - **More-than-human neighbors have standing.** The ocean, the dunes, the plovers, the coyotes: the agent reports their vital signs, brings their interests into answers unprompted when a plan touches them, and names their human advocates. It never speaks as them.
 
 ## How it works
@@ -39,6 +41,35 @@ This repo is the code. The neighborhood's data lives in a separate repo that the
 - **Vital signs** (`src/vitals/`) are read live from public feeds named in `sources.yml` with `vital_sign: true`: NOAA tides, Open-Meteo marine and air, iNaturalist, NPS alerts, and a plover season computed from the constituent file.
 - **Prompt assembly.** The system prompt is `place.md` + `STEWARDS.md` + `constituents/` + people and resources + a fixed behavior block (`src/agent/prompt.ts`). Stable parts are cached; the date comes after.
 - **Limits.** A per-IP rate limit, a daily dollar budget with a hard stop ("I'm resting, try again tomorrow"), fetched content treated as data with an injection scanner that logs attempts, and a refusal rule for anything about a private individual.
+
+## Asking a neighbor, and the commons
+
+The page at `/commons` is where the neighborhood's knowledge is read and given: history and field notes (`archive/`, indexed one `##` section at a time so a search lands on the part that answers), what neighbors shared in their own words (`knowledge/`), and the neighbors who offered to be asked (`knowers/`).
+
+```
+offer    a neighbor fills in what they know, a description, a name and an email
+           -> a confirm link goes to that email. Nothing is stored yet; the link carries the form, encrypted.
+confirm  they click yes
+           -> name and email go to the private contact store
+           -> the public part (description, what they know, an opaque ref) goes to the stewards as a pull request
+ask      in the chat, the model calls ask_a_neighbor with the question and the knower's record id
+           -> the neighbor sees a card: edit the question, add a name and email or not, tap send
+           -> the knower gets the question by email. With an email, reply-to is the asker. Without,
+              reply-to is the stewards and the email asks for the answer to be shared with everyone.
+answer   the knower follows the link in that email and writes what they know
+           -> a knowledge/ draft goes to the stewards; once merged, the agent passes it on as "a neighbor shared..."
+stop     every relayed email has a stop link -> the contact is deleted at once, and stewards are told which note to remove
+```
+
+What keeps it safe:
+
+- **Names and addresses never enter the data repo, the index, or the model's context.** They live in the contact store only. The default store is Resend contacts (the same service that delivers the mail), created outside every broadcast; it needs a `RESEND_API_KEY` with full access, not send-only. `CONTACT_STORE=file` keeps them in the cache directory instead, for a server with a disk.
+- **An address has to prove itself.** Nobody can register someone else's email: nothing is saved until the confirm link is opened from that inbox.
+- **Links are sealed.** Confirm, answer, and stop links are AES-256-GCM tokens keyed from `DRAFT_SECRET`, bound to their purpose, with an expiry. Set `DRAFT_SECRET` in production.
+- **Limits.** Four asks an hour per person, six questions a day per knower, three offers an hour. With nobody to ask, the question goes to the stewards.
+- **The asker's email is typed, not verified,** and the relayed email says so.
+
+Code: `src/knowers/` (seal, store, routes), `src/web/commons.ts`.
 
 ## Run it
 
@@ -96,7 +127,7 @@ Not a developer? [docs/REMIX.md](docs/REMIX.md) is the half-page version: start 
 
 The fork test in this repo (`fixtures/elsewhere/`, used by `npm test`) is a complete data repo for a fictional neighborhood. It runs against the same code with only `DATA_REPO` changed.
 
-1. Create a new data repo. Copy the structure of [outer-sunset](https://github.com/The-Relational-Technology-Project/outer-sunset) or of `fixtures/elsewhere/`: `place.md`, `STEWARDS.md`, `sources.yml`, `people.yml`, `places.yml`, `resources.yml`, `constituents/`, `events/`, `proposals/`, `corrections/`, `archive/`, `log/questions.md`.
+1. Create a new data repo. Copy the structure of [outer-sunset](https://github.com/The-Relational-Technology-Project/outer-sunset) or of `fixtures/elsewhere/`: `place.md`, `STEWARDS.md`, `sources.yml`, `people.yml`, `places.yml`, `resources.yml`, `constituents/`, `events/`, `proposals/`, `corrections/`, `archive/`, `knowers/`, `knowledge/`, `log/questions.md`.
 2. Write `place.md` in your own words. Name your constituents. List your sources; for each one, pick an adapter that fits (`supabase-rest`, `ics`, `llm-txt`, `neighborhood-api`) or add a new one in `src/adapters/` (one file, `fetch` and `normalize`, registered in `registry.ts`).
 3. Set `DATA_REPO` to your repo and run `npm run index`. Fix what's red.
 4. Install a GitHub App on your data repo and deploy.
@@ -124,6 +155,7 @@ dist/                  compiled output, committed for Vercel
   vitals/              feed readers for tide, water, air, plovers, park alerts, wildlife
   agent/               prompt, tools, drafts, agent loop, budget, question log, classifier
   github/              GitHub App JWT, PRs, issues, webhook verification
+  knowers/             asking a neighbor: sealed links, the private contact store, the relay routes
   web/                 layout, pages, the chat script
   safety/              injection scanner
 fixtures/elsewhere/    a fictional neighborhood's data repo (the fork test)

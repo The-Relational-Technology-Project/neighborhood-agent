@@ -66,6 +66,38 @@ export const chatScript = String.raw`
         .catch(function(){ yes.disabled = false; no.disabled = false; yes.textContent = 'Yes, send it'; });
     };
   }
+  function addAsk(a){
+    var card = el('div', 'draft');
+    card.appendChild(el('b', 'k', a.to && a.to.length ? 'Ask a neighbor' : 'Ask the stewards to find someone who knows'));
+    var dl = el('dl', 'summary');
+    (a.to || []).forEach(function(t){ dl.appendChild(el('dt', null, 'To')); dl.appendChild(el('dd', null, t.label + (t.knows ? ' (knows about: ' + t.knows + ')' : ''))); });
+    card.appendChild(dl);
+    var q = el('textarea'); q.value = a.question; q.rows = 4; q.maxLength = 1000; q.setAttribute('aria-label', 'Your question'); card.appendChild(q);
+    var name = el('input'); name.type = 'text'; name.placeholder = 'Your name (optional)'; name.maxLength = 80; name.autocomplete = 'name';
+    var mail = el('input'); mail.type = 'email'; mail.placeholder = 'Your email (optional)'; mail.maxLength = 200; mail.autocomplete = 'email';
+    card.appendChild(name); card.appendChild(mail);
+    card.appendChild(el('div', 'standing', 'With your email, they can write back to you; it goes only to them and isn’t kept here. Without it, the answer comes back to the neighborhood notes, where you and everyone else can find it.'));
+    var actions = el('div', 'actions');
+    var yes = el('button', null, 'Send it'); var no = el('button', 'ghost', 'Not now');
+    actions.appendChild(yes); actions.appendChild(no); card.appendChild(actions); log.appendChild(card); toBottom(true);
+    function label(){ yes.textContent = mail.value.trim() ? 'Send with my email' : 'Send without my email'; }
+    mail.addEventListener('input', label); label();
+    no.onclick = function(){ card.remove(); addMsg('assistant', "Okay, I won't send it."); };
+    yes.onclick = function(){
+      var withMail = !!mail.value.trim();
+      yes.disabled = true; no.disabled = true;
+      fetch('/api/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: a.token, question: q.value, mode: withMail ? 'contact' : 'commons', name: name.value, email: mail.value }) })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (!res.ok) { yes.disabled = false; no.disabled = false; var e = card.querySelector('.err') || card.appendChild(el('div', 'standing err')); e.textContent = res.error || 'I couldn’t send that just now.'; return; }
+          actions.remove(); q.disabled = true; name.remove(); mail.remove();
+          var who = res.to === 'stewards' ? 'the stewards, who will look for someone who knows' : 'a neighbor';
+          card.appendChild(el('div', 'standing ok', 'Sent to ' + who + '. ' + (withMail ? 'If they can help, they’ll write to you.' : 'If they answer, it will show up in the neighborhood notes. Ask me again in a while.')));
+          history.push({ role: 'assistant', content: 'The question was sent to ' + who + '.' });
+        })
+        .catch(function(){ yes.disabled = false; no.disabled = false; });
+    };
+  }
   function setBusy(b){ send.disabled = b; box.disabled = b; }
   var suggest = document.getElementById('suggest');
   if (suggest) suggest.addEventListener('click', function(ev){
@@ -89,8 +121,9 @@ export const chatScript = String.raw`
             var evm = chunk.match(/^event: (\w+)\ndata: (.*)$/s); if (!evm) return;
             var data = JSON.parse(evm[2]);
             if (evm[1] === 'text') { text += data; out.textContent = ''; out.appendChild(linkify(text)); follow(); }
-            else if (evm[1] === 'tool') { var t = el('div', 'tool', ({ search_data: 'checking the neighborhood notes…', get_vital_signs: 'checking the tide and the plovers…', lookup_person_or_place: 'looking that up…', draft_pr: 'drafting that…' })[data] || 'looking…'); log.insertBefore(t, out.parentNode.nextSibling); }
+            else if (evm[1] === 'tool') { var t = el('div', 'tool', ({ search_data: 'checking the neighborhood notes…', get_vital_signs: 'checking the tide and the plovers…', lookup_person_or_place: 'looking that up…', draft_pr: 'drafting that…', ask_a_neighbor: 'finding a neighbor to ask…', city_311: 'checking 311…' })[data] || 'looking…'); log.insertBefore(t, out.parentNode.nextSibling); }
             else if (evm[1] === 'draft') { addDraft(data); }
+            else if (evm[1] === 'ask') { addAsk(data); }
             else if (evm[1] === 'error') { out.textContent = data; out.classList.add('err'); }
           });
           return pump();

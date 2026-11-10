@@ -12,6 +12,8 @@ import { SearchIndex } from "./data/index.js";
 import { loadSources } from "./data/loader.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import { GitHub } from "./github/app.js";
+import { makeContactStore } from "./knowers/store.js";
+import { sendEmail } from "./notify/email.js";
 export class AppState {
     cfg;
     repo;
@@ -26,6 +28,10 @@ export class AppState {
     log;
     limiter;
     github;
+    /** Private names and addresses of neighbors who offered to be asked. Never indexed. */
+    contacts;
+    /** Sends one email. Swappable, so tests can read the mail instead of sending it. */
+    mail;
     agent;
     classifier;
     building;
@@ -35,6 +41,8 @@ export class AppState {
         this.log = new QuestionLog(cfg.cacheDir);
         this.limiter = new RateLimiter(cfg.rateLimitPerTenMinutes);
         this.github = new GitHub(cfg);
+        this.contacts = makeContactStore({ store: cfg.contactStore, resendKey: cfg.email.apiKey, cacheDir: cfg.cacheDir });
+        this.mail = (msg) => sendEmail(cfg, msg);
     }
     async init(opts = {}) {
         await this.budget.load();

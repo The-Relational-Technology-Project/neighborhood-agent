@@ -40,6 +40,8 @@ export interface Config {
   };
   siteUrl?: string;
   email: { apiKey?: string; from: string; to: string[] };
+  /** Where neighbors' private contacts are kept: "resend" or "file". Default: resend when email is on. */
+  contactStore?: string;
   /** Operate without a model (CLI index/search still works). */
   anthropicConfigured: boolean;
 }
@@ -101,6 +103,7 @@ export function loadConfig(): Config {
       from: env("EMAIL_FROM", "Knowy Plover <knowy@relationaltechproject.org>")!,
       to: (env("STEWARD_EMAILS") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     },
+    contactStore: env("CONTACT_STORE"),
     anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
   };
 }

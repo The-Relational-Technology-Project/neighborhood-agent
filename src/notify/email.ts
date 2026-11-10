@@ -17,14 +17,23 @@ export function emailConfigured(cfg: Config, repo: DataRepo): boolean {
 
 export interface Attachment { filename: string; content: Buffer }
 
-export async function emailStewards(cfg: Config, repo: DataRepo, msg: { subject: string; text: string; replyTo?: string; attachments?: Attachment[] }): Promise<void> {
-  const to = stewardAddresses(cfg, repo);
-  if (!cfg.email.apiKey || !to.length) throw new Error("email is not configured");
+export interface Mail { to: string | string[]; subject: string; text: string; replyTo?: string | string[]; attachments?: Attachment[] }
+export type Mailer = (msg: Mail) => Promise<void>;
+
+/** One plain-text email through Resend. */
+export async function sendEmail(cfg: Config, msg: Mail): Promise<void> {
+  if (!cfg.email.apiKey) throw new Error("email is not configured");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${cfg.email.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: cfg.email.from, to, subject: msg.subject, text: msg.text, ...(msg.replyTo ? { reply_to: msg.replyTo } : {}), ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}) }),
+    headers: { Authorization: `Bearer ${cfg.email.apiKey}`, "Content-Type": "application/json", "User-Agent": "neighborhood-agent" },
+    body: JSON.stringify({ from: cfg.email.from, to: msg.to, subject: msg.subject, text: msg.text, ...(msg.replyTo?.length ? { reply_to: msg.replyTo } : {}), ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}) }),
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`email ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+export async function emailStewards(cfg: Config, repo: DataRepo, msg: Omit<Mail, "to">, mail: Mailer = (m) => sendEmail(cfg, m)): Promise<void> {
+  const to = stewardAddresses(cfg, repo);
+  if (!cfg.email.apiKey || !to.length) throw new Error("email is not configured");
+  await mail({ ...msg, to });
 }
