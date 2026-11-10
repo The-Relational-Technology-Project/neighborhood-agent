@@ -26,7 +26,7 @@ export class Agent {
             throw new Error("conversation must start with the neighbor");
         const toolsUsed = [];
         const draftsMade = [];
-        const ctx = { ...tools, onDraft: (d) => { draftsMade.push(d); ev.onDraft?.(d); tools.onDraft?.(d); } };
+        const ctx = { ...tools, onDraft: (d) => { draftsMade.push(d); ev.onDraft?.(d); tools.onDraft?.(d); }, onAsk: (a) => { ev.onAsk?.(a); tools.onAsk?.(a); } };
         let fullText = "";
         let stop = null;
         const usage = { input_tokens: 0, output_tokens: 0 };

@@ -25,7 +25,7 @@ The same notes work for a house, a block, a co-op, a co-living community or a ne
 
 ## Folders the agent fills over time
 
-`events/`, `corrections/`, `proposals/` and `suggestions/` start empty. The agent drafts files for them when someone asks, and a steward decides. `archive/` is for background and history. `log/questions.md` counts what people ask, by topic, with nothing about who asked.
+`events/`, `corrections/`, `proposals/` and `suggestions/` start empty. The agent drafts files for them when someone asks, and a steward decides. `archive/` is for background and history; break long notes into `##` sections, each with its sources, and the agent finds the right one. `knowledge/` holds what people here shared in their own words, and `knowers/` lists people who offered to be asked (a description only; their name and email are kept privately, outside these notes). `log/questions.md` counts what people ask, by topic, with nothing about who asked.
 
 ## Check it loads
 

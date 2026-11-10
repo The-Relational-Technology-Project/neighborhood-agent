@@ -14,6 +14,8 @@ import { loadSources, type SourceStatus } from "./data/loader.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import type { DataRepo } from "./data/types.js";
 import { GitHub } from "./github/app.js";
+import { makeContactStore, type ContactStore } from "./knowers/store.js";
+import { sendEmail, type Mailer } from "./notify/email.js";
 
 export class AppState {
   repo!: DataRepo;
@@ -28,6 +30,10 @@ export class AppState {
   readonly log: QuestionLog;
   readonly limiter: RateLimiter;
   readonly github: GitHub;
+  /** Private names and addresses of neighbors who offered to be asked. Never indexed. */
+  contacts: ContactStore;
+  /** Sends one email. Swappable, so tests can read the mail instead of sending it. */
+  mail: Mailer;
   agent?: Agent;
   classifier?: Anthropic;
   private building?: Promise<void>;
@@ -37,6 +43,8 @@ export class AppState {
     this.log = new QuestionLog(cfg.cacheDir);
     this.limiter = new RateLimiter(cfg.rateLimitPerTenMinutes);
     this.github = new GitHub(cfg);
+    this.contacts = makeContactStore({ store: cfg.contactStore, resendKey: cfg.email.apiKey, cacheDir: cfg.cacheDir });
+    this.mail = (msg) => sendEmail(cfg, msg);
   }
 
   async init(opts: { force?: boolean } = {}): Promise<void> {

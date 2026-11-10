@@ -8,7 +8,7 @@ export const esc = (s: unknown): string =>
 
 export interface Shell { title: string; siteName: string; tagline?: string; placeName?: string; siteUrl?: string; brand?: Set<string>; repoUrl: string; path: string; body: string; head?: string }
 
-const NAV: Array<[string, string]> = [["/", "Ask"], ["/about", "About"], ["/sources", "Sources"], ["/proposals", "Proposals"], ["/correct", "Correct"], ["/contact", "Contact"]];
+const NAV: Array<[string, string]> = [["/", "Ask"], ["/about", "About"], ["/commons", "Commons"], ["/sources", "Sources"], ["/proposals", "Proposals"], ["/correct", "Correct"], ["/contact", "Contact"]];
 
 export function layout(s: Shell): string {
   const place = (s.placeName ?? "this neighborhood").replace(/^The /, "the ");
@@ -149,6 +149,7 @@ form.ask button{min-height:48px;min-width:72px;padding:0 20px}
 .draft dl.summary dd{margin:0;overflow-wrap:anywhere}
 .standing.ok{color:#2f6f3a;font-weight:700}
 .draft .actions button{min-height:46px}
+.draft textarea,.draft input{display:block;width:100%;box-sizing:border-box;margin:0 0 8px;font:inherit;font-size:16px;padding:9px 11px;border:1.5px solid var(--line,#e2d8c0);border-radius:12px;background:#fff;color:inherit}
 .standing{font-size:14px;color:var(--quiet);margin:10px 0 0}
 
 /* ---- footer: room to breathe ---- */

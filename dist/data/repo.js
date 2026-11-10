@@ -230,6 +230,8 @@ export async function loadRepo(root) {
         corrections,
         archive: await readDocs(path.join(root, "archive")),
         suggestions: await readDocs(path.join(root, "suggestions")),
+        knowers: await readDocs(path.join(root, "knowers")),
+        knowledge: await readDocs(path.join(root, "knowledge")),
         recs,
         questionLogMd: await readText(path.join(root, "log", "questions.md")),
         settings: parseSettings(placeMd),

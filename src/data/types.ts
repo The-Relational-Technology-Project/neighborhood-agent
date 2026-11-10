@@ -11,7 +11,11 @@ export type RecordKind =
   | "note"
   | "constituent"
   | "recommendation"
-  | "development";
+  | "development"
+  /** A neighbor who offered to be asked: a public description, never a name or address. */
+  | "knower"
+  /** Something a neighbor shared into the commons, in their own account. */
+  | "knowledge";
 
 export interface SourceRef {
   id: string;
@@ -171,6 +175,10 @@ export interface DataRepo {
   archive: FrontmatterDoc[];
   /** Sources neighbors suggested, with the stewards' decisions. Shown, never used for answers. */
   suggestions: FrontmatterDoc[];
+  /** Neighbors who offered to be asked (knowers/). Public description and an opaque contact ref only. */
+  knowers: FrontmatterDoc[];
+  /** What neighbors shared into the commons (knowledge/). */
+  knowledge: FrontmatterDoc[];
   /** Neighbors' recommendations, one file per source under recs/. */
   recs: RecsFile[];
   questionLogMd: string;

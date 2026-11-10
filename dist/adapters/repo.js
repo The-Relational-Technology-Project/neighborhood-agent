@@ -1,4 +1,17 @@
 import { slug, sourceRef } from "./types.js";
+/** Split a note on its "## " headings. */
+export function splitSections(body) {
+    const chunks = body.split(/^## +(.+?)\s*$/m);
+    const parts = [];
+    for (let i = 1; i < chunks.length; i += 2)
+        if (chunks[i + 1]?.trim())
+            parts.push({ heading: chunks[i].trim(), text: chunks[i + 1].trim() });
+    return { intro: chunks[0].trim(), parts };
+}
+/** A knower can be asked when a steward added them, they have a contact ref, and nobody paused them. */
+export function isActiveKnower(k) {
+    return Boolean(k.data.ref) && String(k.data.knows ?? "").trim() !== "" && !["paused", "left", "off"].includes(String(k.data.status ?? "active").toLowerCase());
+}
 export const repoAdapter = {
     id: "repo",
     async fetch() {
@@ -113,14 +126,58 @@ export const repoAdapter = {
                 tags: [c.kind, "constituent", "more-than-human"],
             });
         }
+        // A long note is indexed one "## section" at a time, so a search returns the part that answers
+        // the question rather than the top of the file. Notes without sections stay one record.
         for (const a of repo.archive) {
+            const name = a.file.replace(/\.md$/, "");
+            const title = String(a.data.title ?? name);
+            const tags = Array.isArray(a.data.topics) ? a.data.topics.map(String) : [];
+            const url = onGithub ? `${src.url}/blob/main/archive/${a.file}` : `${origin}/commons/notes/${name}`;
+            const { intro, parts } = splitSections(a.body);
+            if (!parts.length) {
+                out.push({ ...base, id: `repo:archive:${name}`, kind: "archive-note", title, text: a.body, url, tags });
+                continue;
+            }
+            if (intro)
+                out.push({ ...base, id: `repo:archive:${name}`, kind: "archive-note", title, text: `${intro}\n\nSections: ${parts.map((p) => p.heading).join("; ")}.`, url, tags });
+            const seen = new Set();
+            for (const p of parts) {
+                let key = slug(p.heading) || "section";
+                while (seen.has(key))
+                    key += "-2";
+                seen.add(key);
+                out.push({ ...base, id: `repo:archive:${name}:${key}`, kind: "archive-note", title: `${title}: ${p.heading}`, text: p.text, url, tags });
+            }
+        }
+        for (const k of repo.knowers) {
+            if (!isActiveKnower(k))
+                continue;
+            const d = k.data;
+            const as = String(d.described_as ?? "a neighbor");
             out.push({
                 ...base,
-                id: `repo:archive:${a.file.replace(/\.md$/, "")}`,
-                kind: "archive-note",
-                title: String(a.data.title ?? a.file.replace(/\.md$/, "")),
-                text: a.body,
-                url: onGithub ? `${src.url}/blob/main/archive/${a.file}` : undefined,
+                id: `repo:knowers:${k.file.replace(/\.md$/, "")}`,
+                kind: "knower",
+                title: `A neighbor who can be asked: ${as}`,
+                text: `Knows about: ${String(d.knows ?? "")}${k.body ? `\n${k.body}` : ""}\nOffered to be asked${d.since ? ` on ${String(d.since)}` : ""}. Describe them only as "${as}". To pass a neighbor's question along, call ask_a_neighbor with this id.`,
+                url: `${origin}/commons`,
+                tags: [...(Array.isArray(d.topics) ? d.topics.map(String) : []), "ask a neighbor"],
+                verified_at: d.since ? String(d.since) : undefined,
+            });
+        }
+        for (const k of repo.knowledge) {
+            const d = k.data;
+            const name = k.file.replace(/\.md$/, "");
+            const day = d.shared ? String(d.shared) : /^\d{4}-\d{2}-\d{2}/.test(name) ? name.slice(0, 10) : undefined;
+            out.push({
+                ...base,
+                id: `repo:knowledge:${name}`,
+                kind: "knowledge",
+                title: String(d.title ?? name),
+                text: [d.question ? `A neighbor asked: ${String(d.question)}` : "", k.body, `Shared by ${String(d.shared_by ?? "a neighbor")}${day ? ` on ${day}` : ""}.${d.how_known ? ` How they know: ${String(d.how_known)}.` : ""} This is a neighbor's own account.`].filter(Boolean).join("\n"),
+                url: onGithub ? `${src.url}/blob/main/knowledge/${k.file}` : `${origin}/commons/shared/${name}`,
+                tags: Array.isArray(d.topics) ? d.topics.map(String) : [],
+                verified_at: day,
             });
         }
         return out;

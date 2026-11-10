@@ -1,10 +1,10 @@
 import { formatVitals, getVitalSigns } from "../vitals/index.js";
 import { makeDraft } from "./drafts.js";
-const KINDS = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation", "development"];
+const KINDS = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation", "development", "knower", "knowledge"];
 export const toolDefinitions = [
     {
         name: "search_data",
-        description: "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents. Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
+        description: "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents, history and field notes (kind \"archive-note\": the eras of the place, its plants and animals, a section at a time), what neighbors have shared in their own words (kind \"knowledge\"), and neighbors who offered to be asked about what they know (kind \"knower\"). Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
         input_schema: {
             type: "object",
             properties: {
@@ -54,21 +54,35 @@ export const toolDefinitions = [
     },
     {
         name: "draft_pr",
-        description: "Prepare something a neighbor wants added: an event, a correction, a proposal, or a source for Knowy to read (a doc, spreadsheet, site, calendar, or feed). The page shows them a summary card with a 'Yes, send it' button; nothing is sent until they tap it, and a steward looks it over before it's added. For 'proposal', the result also says how many times the topic has come up before. Call this only after you have collected the fields in conversation.",
+        description: "Prepare something a neighbor wants added: an event, a correction, a proposal, a source for Knowy to read (a doc, spreadsheet, site, calendar, or feed), or something they know and want to give to the neighborhood (kind \"knowledge\"). The page shows them a summary card with a 'Yes, send it' button; nothing is sent until they tap it, and a steward looks it over before it's added. For 'proposal', the result also says how many times the topic has come up before. Call this only after you have collected the fields in conversation.",
         input_schema: {
             type: "object",
             properties: {
-                kind: { type: "string", enum: ["event", "correction", "proposal", "source"] },
+                kind: { type: "string", enum: ["event", "correction", "proposal", "source", "knowledge"] },
                 ask: { type: "string", description: "What the neighbor asked for, in their own words, quoted from the conversation." },
                 fields: {
                     type: "object",
-                    description: "String fields, by kind. event: title, date (YYYY-MM-DD), start (HH:MM), end, place, host, contact (a public way to reach the host, only if they give one; leave it out otherwise), description. correction: target (the record id you showed, or a short description), field (hours|address|closed|name|other), was, now, how_known, by, note. proposal: title, proposer, what, why, already_exists. source (a doc, spreadsheet, site, calendar, or feed Knowy could read): title, url, what (what's in it), kept_by (who keeps it, if known), ok_to_share (is it already public, or did whoever keeps it say yes), updates (how often it changes), suggested_by.",
+                    description: "String fields, by kind. event: title, date (YYYY-MM-DD), start (HH:MM), end, place, host, contact (a public way to reach the host, only if they give one; leave it out otherwise), description. correction: target (the record id you showed, or a short description), field (hours|address|closed|name|other), was, now, how_known, by, note. proposal: title, proposer, what, why, already_exists. source (a doc, spreadsheet, site, calendar, or feed Knowy could read): title, url, what (what's in it), kept_by (who keeps it, if known), ok_to_share (is it already public, or did whoever keeps it say yes), updates (how often it changes), suggested_by. knowledge (a memory, a piece of history, something seen or learned first-hand): title, what (what they know, in their words), how_known (how they know it), shared_by (how they want to be credited; 'a neighbor' unless they say otherwise).",
                     additionalProperties: { type: "string" },
                 },
             },
             required: ["kind", "ask", "fields"],
             additionalProperties: false,
         },
+    },
+    {
+        name: "ask_a_neighbor",
+        description: "Pass a neighbor's question to a neighbor who offered to be asked (kind \"knower\" in search_data). The page shows the asker a card: they can add their name and email so the neighbor can write back, or send it without, in which case the answer comes back into the neighborhood notes for everyone. Nothing is sent until they tap. You never see anyone's name or email. With no knower_ids, the question goes to the stewards to find someone.",
+        input_schema: {
+            type: "object",
+            properties: {
+                question: { type: "string", description: "The question, in the asker's words, complete enough to make sense on its own in an email. Under 600 characters. No personal details about the asker." },
+                knower_ids: { type: "array", items: { type: "string" }, description: "Record ids of the knowers to ask (repo:knowers:...), one or two who fit best. Empty to send to the stewards." },
+            },
+            required: ["question", "knower_ids"],
+            additionalProperties: false,
+        },
+        strict: true,
     },
 ];
 export function formatRecord(r) {
@@ -78,7 +92,7 @@ export function formatRecord(r) {
         `id: ${r.id}`,
         when,
         r.location ? `where: ${r.location}` : "",
-        r.text ? r.text.slice(0, 700) : "",
+        r.text ? r.text.slice(0, r.kind === "archive-note" || r.kind === "knowledge" ? 1600 : 700) : "",
         `source: ${r.source.name} ${r.url ?? r.source.url}`,
         `fetched: ${r.fetched_at.slice(0, 16).replace("T", " ")}${r.verified_at ? `, verified ${r.verified_at}` : r.verified_at === null ? ", never verified by a person" : ""}`,
         r.corrections?.length ? `CORRECTED by a neighbor on ${r.corrections.map((c) => c.date).join(", ")} (see text)` : "",
@@ -115,13 +129,26 @@ export async function runTool(name, input, ctx) {
         }
         case "draft_pr": {
             const kind = String(args.kind);
-            if (!["event", "correction", "proposal", "source"].includes(kind))
+            if (!["event", "correction", "proposal", "source", "knowledge"].includes(kind))
                 return "Unknown kind.";
             const fields = (args.fields ?? {});
             const draft = makeDraft({ kind, ask: String(args.ask ?? ""), fields });
             ctx.onDraft?.(draft);
             const came = kind === "proposal" ? `This topic has come up ${ctx.log.count("proposal")} time(s) before in the question log.\n` : "";
             return `${came}Ready. The page now shows the neighbor a card with this summary and a "Yes, send it" button:\n${draft.summary.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\nIn a sentence or two, tell them to tap "Yes, send it" if it looks right, that a neighborhood steward looks it over before it's added, and that once added it's public. Don't repeat the details, show files, or mention pull requests.`;
+        }
+        case "ask_a_neighbor": {
+            if (!ctx.relay)
+                return "Passing questions to neighbors isn't set up here. Point them to a group or org from the notes, or to the contact page to write to the stewards.";
+            const question = String(args.question ?? "").trim().slice(0, 1000);
+            if (question.length < 8)
+                return "Ask the neighbor what they'd like to ask first.";
+            const ids = Array.isArray(args.knower_ids) ? args.knower_ids.map(String).slice(0, 3) : [];
+            const to = ids.map((id) => ctx.index.get(id)).filter((r) => r?.kind === "knower").map((r) => ({ id: r.id, label: r.title.replace(/^A neighbor who can be asked:\s*/, ""), knows: (r.text.match(/^Knows about: (.*)$/m)?.[1] ?? "").slice(0, 200) }));
+            if (ids.length && !to.length)
+                return "None of those ids is a neighbor who can be asked. Search kind \"knower\" again, or call this with no knower_ids to send it to the stewards.";
+            ctx.onAsk?.({ question, to });
+            return `Ready. The page now shows a card with the question, going to ${to.length ? to.map((t) => t.label).join(" and ") : "the stewards, who will look for someone who knows"}. In a sentence or two, tell them: they can add their name and email so the neighbor can write back to them directly, or send it without, and the answer will come back into the neighborhood notes for everyone. Their name and email go only to that neighbor. Don't promise a reply; neighbors answer when they can.`;
         }
         default:
             return `Unknown tool ${name}.`;

@@ -49,6 +49,28 @@ Nobody is in the notes without their yes, for this purpose.
 
 **At small scale this is most of the work.** In a house, everything the agent knows is about the people who live there. Agree together, before anything goes in, what the agent may know: the chore rota and the wifi, probably yes; who is home when, probably no. If one person would not want another to ask the agent about it, leave it out. Guests and children get the same care: nothing about them without a yes from them or their parent.
 
+## Neighbors who offer to be asked
+
+The agent knows the start of most stories. The rest lives with people. So anyone can say "you can ask me" on the commons page: what they know, how to describe them, and a name and email.
+
+- The name and email are private. They are kept outside the notes, the agent never sees them, and stewards do not need them. What reaches you for review is only the public part: a description ("a neighbor on the corner since 1990") and what they know.
+- Nobody can be signed up by someone else. Nothing is saved until the person opens a link sent to their own email.
+- Read the description like anything else going public. Does it say more than the person would want on a pole? Does it name anyone else? Then accept it.
+- When a question fits, the agent emails it to them. The asker can leave an email so the neighbor can write back, or leave nothing, and the answer comes to the notes for everyone.
+- They never owe an answer. Every email has a link to stop; it deletes their contact at once, and you get a note to take their file down. To pause someone yourself, set `status: paused` in their file.
+
+## What neighbors give
+
+Things people know arrive as drafts for `knowledge/`: a memory, a piece of history, an answer to someone's question. Treat each one as a gift.
+
+- Keep their words. Fix a typo, not the voice.
+- Credit them the way they asked. "A neighbor" is the default.
+- Leave out other people's names and addresses, and ask before accepting anything that reads as a complaint about someone.
+- You don't have to check it like a newspaper would. The agent passes it on as one neighbor's account, and says so. If it contradicts a published source, both get told.
+- If two neighbors remember it differently, keep both.
+
+Everything in the notes is shared under an open license, so anyone can reuse it with credit. Say so when someone asks what happens to what they give.
+
 ## Good friction
 
 Changes are slow on purpose.
@@ -75,6 +97,8 @@ The agent keeps one thing: a weekly count of what people asked about, by topic, 
 
 - Changes its own notes, or says a change is made before a steward accepts it.
 - Remembers a conversation, or asks people to sign in to ask.
+- Shows or learns the name or email of a neighbor who offered to be asked.
+- Signs anyone up to be asked, or presses anyone to share.
 - Says where anyone lives, who said what in a chat, or anything about a private person.
 - Guesses hours, prices, or whether something is open.
 - Speaks as the ocean, the plovers, or any more-than-human neighbor.

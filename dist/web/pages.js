@@ -14,7 +14,7 @@ function placeName(state) {
     const m = state.repo.placeMd.match(/^#\s+(.+)$/m);
     return m?.[1] ?? "this neighborhood";
 }
-const shell = (state, path, title, body, head) => layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), siteUrl: state.cfg.siteUrl, brand: state.brand, repoUrl: state.github.repoUrl, path, body, head });
+export const shell = (state, path, title, body, head) => layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), siteUrl: state.cfg.siteUrl, brand: state.brand, repoUrl: state.github.repoUrl, path, body, head });
 /** One compact line of the most-asked vital signs; the full set is on /sources. */
 function vitalLine(signs) {
     const keep = ["tide", "water", "air", "plovers"];
@@ -24,7 +24,7 @@ function vitalLine(signs) {
         return "";
     return `<div class="vline">${list.map((s) => `<span><b>${esc(s.label)}</b> <a href="/sources" title="${esc(s.source.name)}">${esc(short(s))}</a></span>`).join("")}</div>`;
 }
-const SUGGESTIONS = ["Who should I talk to about meeting neighbors?", "What's happening this weekend?", "How's the ocean today?", "I want to add an event"];
+const SUGGESTIONS = ["Who should I talk to about meeting neighbors?", "What's happening this weekend?", "What was here before the houses?", "How's the ocean today?", "I want to add an event"];
 export function vitalsHtml(signs) {
     if (!signs.length)
         return "";
@@ -236,6 +236,7 @@ ${state.statuses.some((x) => x.error || x.skipped) ? `<h2>Sources needing attent
 <table class="stack">
 <tr><td>GitHub App (turns submissions into pull requests)${st.githubDetail ? `<br><small>${esc(st.githubDetail)}</small>` : ""}</td><td>${ok(st.github)}</td></tr>
 <tr><td>Email to stewards${st.emailTo.length ? ` (${esc(st.emailTo.join(", "))})` : ""}</td><td>${ok(st.email)}</td></tr>
+${st.contacts ? `<tr><td>Neighbors who can be asked (${st.knowers ?? 0} listed; names and emails kept privately)<br><small>${esc(st.contacts.detail)}</small></td><td>${ok(st.contacts.ok)}</td></tr>` : ""}
 <tr><td>Model</td><td>${esc(st.model ?? "not configured")}</td></tr>
 <tr><td>Today's budget</td><td>$${st.spent.toFixed(2)} of $${st.limit.toFixed(2)}</td></tr>
 <tr><td>Data repo</td><td><a href="${esc(repo)}">${esc((st.sha ?? "").slice(0, 7) || "local")}</a>, refreshed ${esc(st.built?.slice(0, 16).replace("T", " ") ?? "never")} UTC</td></tr>
