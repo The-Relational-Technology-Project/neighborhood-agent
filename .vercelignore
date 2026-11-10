@@ -9,4 +9,3 @@ golden.yml
 Dockerfile
 fly.toml
 .cache
-handoff
