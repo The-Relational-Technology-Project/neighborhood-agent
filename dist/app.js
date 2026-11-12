@@ -11,7 +11,8 @@ import { verifyWebhook } from "./github/app.js";
 import { emailConfigured, emailStewards, stewardAddresses } from "./notify/email.js";
 import { isoWeek } from "./agent/questionlog.js";
 import { getVitalSigns } from "./vitals/index.js";
-import { handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
+import { blockJson, handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
+import { aboutBlock } from "./blocks/geo.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
 import { askCard, registerCommons, relayOn } from "./knowers/routes.js";
@@ -101,9 +102,19 @@ export function createApp(state) {
     const packReads = new RateLimiter(300);
     const packWrites = new RateLimiter(5, 60 * 60 * 1000);
     const siteBase = (c) => (state.cfg.siteUrl ?? new URL(c.req.url).origin).replace(/\/$/, "");
-    for (const p of ["/place.json", "/mcp"])
+    for (const p of ["/place.json", "/mcp", "/block.json"])
         app.options(p, (c) => c.body(null, 204, CORS));
     app.get("/place.json", async (c) => c.json(await placePack(state, siteBase(c)), 200, { ...CORS, "cache-control": "public, max-age=300" }));
+    // One block, as data: what the notes hold about it and what is pinned nearby. For maps and other tools.
+    app.get("/block.json", (c) => {
+        if (!packReads.allow(clientIp(c)))
+            return c.json({ error: "Too many requests. Try again in a few minutes." }, 429, CORS);
+        const where = (c.req.query("where") ?? c.req.query("id") ?? "").slice(0, 200);
+        if (!where)
+            return c.json({ error: "Give ?where= a block id, 'lat,lng', a block ('46th Ave between Moraga and Noriega') or a corner ('46th and Judah').", blocks: state.repo.blocks.length }, 400, CORS);
+        const about = blockJson(aboutBlock(state.repo, where), state.repo.blocksSources);
+        return c.json(about, about.found ? 200 : 404, { ...CORS, "cache-control": "public, max-age=300" });
+    });
     app.get("/mcp", (c) => c.json({ name: "knowy-place-pack", version: PACK_VERSION, transport: "POST JSON-RPC 2.0 here (initialize, tools/list, tools/call). No auth.", tools: mcpTools.map((t) => t.name), about: `${siteBase(c)}/place.json` }, 200, CORS));
     app.post("/mcp", async (c) => {
         if (!packReads.allow(clientIp(c)))

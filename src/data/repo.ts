@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import YAML from "yaml";
 import { parseFrontmatter } from "./frontmatter.js";
-import type { Constituent, Correction, DataRepo, FrontmatterDoc, Person, Place, RecsFile, Door, Resource, SourceDef } from "./types.js";
+import type { Block, BlockNote, Constituent, Correction, DataRepo, FrontmatterDoc, Person, Place, RecsFile, Door, Resource, SourceDef } from "./types.js";
 
 const exec = promisify(execFile);
 
@@ -201,6 +201,37 @@ export async function loadRepo(root: string): Promise<DataRepo> {
     }
   } catch { /* no recs folder */ }
 
+  // blocks/: one file with the list of blocks (a `blocks:` list), any number with pinned notes (`notes:`).
+  const blocks: Block[] = [];
+  const blockNotes: BlockNote[] = [];
+  let blocksSources: string | undefined;
+  const num = (v: unknown) => (typeof v === "number" ? v : Number(v));
+  try {
+    for (const name of (await fs.readdir(path.join(root, "blocks"))).filter((n) => /\.ya?ml$/.test(n)).sort()) {
+      try {
+        const doc = YAML.parse(await readText(path.join(root, "blocks", name))) as { meta?: { sources?: string }; blocks?: unknown[]; notes?: unknown[] } | null;
+        for (const raw of Array.isArray(doc?.blocks) ? doc!.blocks! : []) {
+          const b = raw as Partial<Block>;
+          if (!b?.id || !b.name || !Number.isFinite(num(b.lat)) || !Number.isFinite(num(b.lng))) continue;
+          blocks.push({ ...b, id: String(b.id), name: String(b.name), streets: Array.isArray(b.streets) ? b.streets.map(String) : [], lat: num(b.lat), lng: num(b.lng) } as Block);
+        }
+        if (Array.isArray(doc?.blocks) && doc?.meta?.sources) blocksSources = String(doc.meta.sources);
+        const seen = new Set(blockNotes.map((n) => n.id));
+        for (const raw of Array.isArray(doc?.notes) ? doc!.notes! : []) {
+          const n = raw as Partial<BlockNote>;
+          if (!n?.title || !n.text || !Number.isFinite(num(n.lat)) || !Number.isFinite(num(n.lng))) continue;
+          let id = String(n.id ?? n.title).toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "") || "note";
+          while (seen.has(id)) id += "-2";
+          seen.add(id);
+          blockNotes.push({ ...n, id, title: String(n.title), text: String(n.text).trim(), lat: num(n.lat), lng: num(n.lng), file: `blocks/${name}` } as BlockNote);
+        }
+      } catch (err) {
+        console.warn(`[repo] could not parse blocks/${name}:`, (err as Error).message);
+        loadErrors.push(`blocks/${name}: ${(err as Error).message.split("\n")[0]}`);
+      }
+    }
+  } catch { /* no blocks folder */ }
+
   return {
     root,
     sha: await repoSha(root),
@@ -223,6 +254,9 @@ export async function loadRepo(root: string): Promise<DataRepo> {
     knowers: await readDocs(path.join(root, "knowers")),
     knowledge: await readDocs(path.join(root, "knowledge")),
     recs,
+    blocks,
+    blockNotes,
+    blocksSources,
     questionLogMd: await readText(path.join(root, "log", "questions.md")),
     settings: parseSettings(placeMd),
   };

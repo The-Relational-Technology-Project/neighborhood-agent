@@ -220,3 +220,62 @@ describe("the relay, end to end", () => {
     expect((await app.request("/commons/notes/nope")).status).toBe(404);
   });
 });
+
+describe("block by block", () => {
+  it("loads the grid and the pinned notes, and skips nothing that has a place", async () => {
+    const { repo, index } = await loadFixture();
+    expect(repo.blocks.map((b) => b.id)).toEqual(["main-1", "main-2", "second-main", "second-river", "mill-1"]);
+    expect(repo.blockNotes.map((n) => n.id)).toEqual(["ferry-landing", "mill-photo", "floodplain", "far-away", "river-bank"]);
+    expect(index.get("repo:blocks:ferry-landing")).toMatchObject({ kind: "block-note", location: "Main St & 2nd Ave" });
+    expect(index.get("repo:blocks:ferry-landing")?.text).toContain("[Elsewhere Historical Society](https://example.org/history)");
+  });
+
+  it("finds a block, a corner, an id and a point; never needs a house number", async () => {
+    const { resolveWhere } = await import("../src/blocks/geo.js");
+    const { repo } = await loadFixture();
+    expect(resolveWhere(repo.blocks, "Main Street between 1st and 2nd")).toMatchObject({ status: "block", label: "Main St, 1st Ave to 2nd Ave" });
+    expect(resolveWhere(repo.blocks, "412 2nd Ave between Main and Mill")).toMatchObject({ status: "block", label: "2nd Ave, Main St to Mill Rd" });
+    const corner = resolveWhere(repo.blocks, "2nd and Main");
+    expect(corner.status).toBe("corner");
+    expect(corner.lat).toBeCloseTo(45.0015, 3);
+    expect(resolveWhere(repo.blocks, "main-2")).toMatchObject({ status: "block", label: "Main St, 2nd Ave to 3rd Ave" });
+    expect(resolveWhere(repo.blocks, "45.00101, -120.00001")).toMatchObject({ status: "point" });
+    expect(resolveWhere(repo.blocks, "Main St").status).toBe("vague");
+    expect(resolveWhere(repo.blocks, "Elm Street").status).toBe("none");
+    expect(resolveWhere(repo.blocks, "10.0, 10.0").status).toBe("none");
+  });
+
+  it("about_block gives the block's own line, what is pinned nearby with sources, photos by link, and what is true everywhere", async () => {
+    const { repo, index } = await loadFixture();
+    const ctx = { repo, index, log: new QuestionLog(await tmpCache()) };
+    const out = await runTool("about_block", { where: "Main and 2nd" }, ctx);
+    expect(out).toContain("About 12 feet above the river.");
+    expect(out).toContain("Heights from the county survey.");
+    expect(out).toContain("The ferry landing at Main and 2nd");
+    expect(out).toContain("right here");
+    expect(out).toContain("[Elsewhere Historical Society](https://example.org/history)");
+    expect(out).toContain("https://example.org/photos/12");
+    expect(out).toContain("County Library / 12");
+    expect(out).not.toContain("undefined");
+    expect(out).toContain("River silt under every street");
+    expect(out).not.toContain("old quarry");
+    expect(await runTool("about_block", { where: "Main St" }, ctx)).toContain("Never ask for a house number");
+    // An area with a box applies inside it and not outside.
+    expect(out).toContain("The river bank floods");
+    expect(await runTool("about_block", { where: "Mill Rd between 1st and 2nd" }, ctx)).not.toContain("The river bank floods");
+  });
+
+  it("keeps photographs out of a general search but finds them when asked for block notes", async () => {
+    const { index } = await loadFixture();
+    expect(index.search("mill workers").some((r) => r.id === "repo:blocks:mill-photo")).toBe(false);
+    expect(index.search("mill workers", { kinds: ["block-note"] })[0].id).toBe("repo:blocks:mill-photo");
+    expect(index.search("ferry landing")[0].id).toBe("repo:blocks:ferry-landing");
+  });
+
+  it("a place with no blocks folder still works", async () => {
+    const { repo, index } = await loadFixture();
+    const bare = { ...repo, blocks: [], blockNotes: [] };
+    expect(await runTool("about_block", { where: "Main and 2nd" }, { repo: bare, index, log: new QuestionLog(await tmpCache()) })).toContain("keeps no block-by-block notes");
+    expect(buildSystem(bare).map((b) => b.text).join("\n")).toContain("None kept for this place.");
+  });
+});

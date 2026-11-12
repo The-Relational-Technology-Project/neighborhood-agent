@@ -1,0 +1,8 @@
+meta:
+  sources: "Heights from the county survey."
+blocks:
+  - {id: main-1, name: "Main St, 1st Ave to 2nd Ave", streets: ["Main St", "1st Ave", "2nd Ave"], lat: 45.0010, lng: -120.0000, elev_ft: 12, about: "About 12 feet above the river."}
+  - {id: main-2, name: "Main St, 2nd Ave to 3rd Ave", streets: ["Main St", "2nd Ave", "3rd Ave"], lat: 45.0020, lng: -120.0000, about: "About 14 feet above the river."}
+  - {id: second-main, name: "2nd Ave, Main St to Mill Rd", streets: ["2nd Ave", "Main St", "Mill Rd"], lat: 45.0015, lng: -120.0006}
+  - {id: second-river, name: "2nd Ave, River Rd to Main St", streets: ["2nd Ave", "River Rd", "Main St"], lat: 45.0015, lng: -119.9994}
+  - {id: mill-1, name: "Mill Rd, 1st Ave to 2nd Ave", streets: ["Mill Rd", "1st Ave", "2nd Ave"], lat: 45.0010, lng: -120.0012}

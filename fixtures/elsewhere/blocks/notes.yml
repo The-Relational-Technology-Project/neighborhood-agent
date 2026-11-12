@@ -1,0 +1,46 @@
+meta:
+  title: Block notes for Elsewhere
+notes:
+  - id: ferry-landing
+    title: The ferry landing at Main and 2nd
+    kind: history
+    at: "Main St & 2nd Ave"
+    lat: 45.0015
+    lng: -120.0000
+    years: "1890-1921"
+    text: The river ferry tied up here until the bridge opened in 1921.
+    sources:
+      - {name: Elsewhere Historical Society, url: "https://example.org/history"}
+  - id: mill-photo
+    title: Mill workers on Mill Road
+    kind: photo
+    at: "Mill Rd & 1st Ave"
+    lat: 45.0008
+    lng: -120.0012
+    years: "1905"
+    text: A photograph in the county library's collection.
+    photo: {page: "https://example.org/photos/12", credit: "County Library / 12"}
+  - id: floodplain
+    title: River silt under every street
+    kind: geology
+    reach: everywhere
+    lat: 45.0015
+    lng: -120.0000
+    text: The whole town sits on silt the river left behind.
+    sources:
+      - {name: County Survey, url: "https://example.org/survey"}
+  - id: far-away
+    title: The old quarry
+    kind: history
+    at: "Quarry Rd"
+    lat: 45.0500
+    lng: -120.0500
+    text: Stone for the courthouse came from here.
+  - id: river-bank
+    title: The river bank floods
+    kind: geology
+    reach: area
+    box: [45.0000, -120.0003, 45.0030, -119.9990]
+    lat: 45.0015
+    lng: -119.9994
+    text: The blocks east of Main Street flooded in 1964.

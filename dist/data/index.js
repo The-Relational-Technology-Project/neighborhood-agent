@@ -39,6 +39,10 @@ export class SearchIndex {
         let hits = this.mini.search(query).map((h) => this.byId.get(String(h.id))).filter(Boolean);
         if (opts.kinds?.length)
             hits = hits.filter((r) => opts.kinds.includes(r.kind));
+        // Old photographs are many and their captions are street names; keep them out of a general
+        // search so "Judah" still finds this week's events. Asking for kind "block-note" includes them.
+        else
+            hits = hits.filter((r) => !(r.kind === "block-note" && r.extra?.kind === "photo"));
         if (opts.upcoming)
             hits = hits.filter((r) => !r.date || r.date >= today);
         if (opts.on)

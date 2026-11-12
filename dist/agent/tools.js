@@ -1,10 +1,11 @@
+import { aboutBlock, formatAbout } from "../blocks/geo.js";
 import { formatVitals, getVitalSigns } from "../vitals/index.js";
 import { makeDraft } from "./drafts.js";
-const KINDS = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation", "development", "knower", "knowledge"];
+const KINDS = ["event", "place", "group", "resource", "person", "proposal", "correction", "archive-note", "note", "constituent", "recommendation", "development", "knower", "knowledge", "block-note"];
 export const toolDefinitions = [
     {
         name: "search_data",
-        description: "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents, history and field notes (kind \"archive-note\": the eras of the place, its plants and animals, a section at a time), what neighbors have shared in their own words (kind \"knowledge\"), and neighbors who offered to be asked about what they know (kind \"knower\"). Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
+        description: "Full-text search over everything the agent knows: events from the live calendars, places, groups, resources neighbors built, people and orgs who agreed to be listed, neighbors' recommendations (plumbers, pediatricians, daycares, restaurants, and more, with vouch counts and dates), planned developments and planning projects with their city status (kind \"development\"), open proposals, merged corrections, news, constituents, history and field notes (kind \"archive-note\": the eras of the place, its plants and animals, a section at a time), what neighbors have shared in their own words (kind \"knowledge\"), neighbors who offered to be asked about what they know (kind \"knower\"), and notes and old photographs pinned to a corner or a block (kind \"block-note\"; for one block, about_block is better). Use several short queries rather than one long one. Returns records with source name, link, and when fetched.",
         input_schema: {
             type: "object",
             properties: {
@@ -32,6 +33,17 @@ export const toolDefinitions = [
             type: "object",
             properties: { name: { type: "string", description: "A name or a topic, e.g. 'Black Bird', 'coyotes', 'tool library', 'beach cleanups'." } },
             required: ["name"],
+            additionalProperties: false,
+        },
+        strict: true,
+    },
+    {
+        name: "about_block",
+        description: "What the notes hold about one block or corner: how high it sits and when its homes were built, the history and geology pinned on or near it, old photographs taken there with links, and what is true of the wider stretch. Use it for \"what's special about my block?\", \"what used to be at 46th and Judah?\", \"any old photos of my corner?\", \"what's under my house?\". It needs a block (a street and its two cross streets) or a corner (two streets). If the neighbor hasn't said which, ask for the cross streets, never a house number.",
+        input_schema: {
+            type: "object",
+            properties: { where: { type: "string", description: "Streets only: '46th Ave between Moraga and Noriega', 'Judah between 45th and 46th', or a corner, '46th and Judah'." } },
+            required: ["where"],
             additionalProperties: false,
         },
         strict: true,
@@ -92,7 +104,7 @@ export function formatRecord(r) {
         `id: ${r.id}`,
         when,
         r.location ? `where: ${r.location}` : "",
-        r.text ? r.text.slice(0, r.kind === "archive-note" || r.kind === "knowledge" ? 2400 : 700) : "",
+        r.text ? r.text.slice(0, r.kind === "archive-note" || r.kind === "knowledge" ? 2400 : r.kind === "block-note" ? 1400 : 700) : "",
         `source: ${r.source.name} ${r.url ?? r.source.url}`,
         `fetched: ${r.fetched_at.slice(0, 16).replace("T", " ")}${r.verified_at ? `, verified ${r.verified_at}` : r.verified_at === null ? ", never verified by a person" : ""}`,
         r.corrections?.length ? `CORRECTED by a neighbor on ${r.corrections.map((c) => c.date).join(", ")} (see text)` : "",
@@ -122,6 +134,11 @@ export async function runTool(name, input, ctx) {
             if (!hits.length)
                 return `Nothing in the repo matches "${q}". Say you don't know; do not invent hours or contacts.`;
             return hits.map(formatRecord).join("\n\n");
+        }
+        case "about_block": {
+            if (!ctx.repo.blocks.length)
+                return "This place keeps no block-by-block notes. Search the history and field notes instead.";
+            return formatAbout(aboutBlock(ctx.repo, String(args.where ?? "")), { sources: ctx.repo.blocksSources });
         }
         case "city_311": {
             const { run311 } = await import("./city311.js");

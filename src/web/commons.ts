@@ -3,7 +3,8 @@
  * give (share something you know; offer to be asked). No AI runs on any of these.
  */
 import { isActiveKnower } from "../adapters/repo.js";
-import type { FrontmatterDoc } from "../data/types.js";
+import { aboutBlock, type Nearby } from "../blocks/geo.js";
+import type { BlockNote, FrontmatterDoc } from "../data/types.js";
 import type { AppState } from "../state.js";
 import { esc, md } from "./html.js";
 import { shell } from "./pages.js";
@@ -45,6 +46,7 @@ ${opts.canSend ? `<form method="post" action="/commons/share" class="card">
   ${HP}
   <p style="margin:16px 0 0"><button type="submit">Give it to the neighborhood</button></p>
 </form>` : `<p><a href="/contact">Write to the stewards</a>.</p>`}
+${state.repo.blocks.length ? `<h2 id="blocks">Block by block</h2><p>${state.repo.blockNotes.filter((n) => n.kind !== "photo").length} notes and ${state.repo.blockNotes.filter((n) => n.kind === "photo").length} old photographs, each pinned to a corner. <a href="/commons/blocks">Look up your block</a>, or ask Knowy what's special about it.</p>` : ""}
 ${shared.length ? `<h2 id="shared">From neighbors</h2><ul>${shared.map((k) => `<li><a href="/commons/shared/${esc(noteName(k))}">${esc(String(k.data.title ?? noteName(k)))}</a> <small>${esc(String(k.data.shared_by ?? "a neighbor"))}${k.data.shared ? `, ${esc(String(k.data.shared))}` : ""}</small></li>`).join("")}</ul>` : ""}
 ${notes.length ? `<h2 id="notes">History and field notes</h2><p>Gathered from public sources, each one named, as a place to start. A neighbor's correction wins over any of it.</p><ul>${notes.map((n) => `<li><a href="/commons/notes/${esc(noteName(n))}">${esc(String(n.data.title ?? noteName(n)))}</a></li>`).join("")}</ul>` : ""}
 <p class="note">Shared under CC BY 4.0: anyone may reuse it with credit. Looked after by the stewards.</p>`;
@@ -64,6 +66,46 @@ ${d.question ? `<p class="note">A neighbor asked: ${esc(String(d.question))}</p>
 ${md(doc.body)}
 <p class="note">Know more, or know better? <a href="/">Tell Knowy</a>, or <a href="/commons#share">share it here</a>.</p>`;
   return shell(state, "/commons", String(d.title ?? "Commons"), body);
+}
+
+const srcLinks = (n: BlockNote) => (n.sources?.length ? `<small>Sources: ${n.sources.map((s) => `<a href="${esc(s.url)}" rel="noopener">${esc(s.name)}</a>`).join(", ")}</small>` : "");
+function noteItem(n: BlockNote, far?: string): string {
+  if (n.kind === "photo") {
+    const links = n.sources?.length ? n.sources : n.photo ? [{ name: n.photo.credit ?? "the photograph", url: n.photo.page }] : [];
+    return `<li><div class="srchead">${esc(n.title)}${n.years ? `, ${esc(n.years)}` : ""}</div><small>${far ? `${esc(far)}. ` : ""}${links.map((l) => `<a href="${esc(l.url)}" rel="noopener">${esc(l.name)}</a>`).join(", ")}</small></li>`;
+  }
+  return `<li><div class="srchead">${esc(n.title)}${n.years ? ` <small>${esc(n.years)}</small>` : ""}</div><p>${esc(n.text)}</p><small>${far ? `${esc(far)}${n.at ? `, at ${esc(n.at)}` : ""}. ` : n.extent ? `${esc(n.extent)}. ` : ""}</small>${srcLinks(n)}</li>`;
+}
+const noteList = (xs: Nearby[]) => `<ul class="srclist">${xs.map((x) => noteItem(x.note, x.far)).join("")}</ul>`;
+
+/** Look up one block: what the notes hold about it and what is pinned nearby. No AI runs here. */
+export function blocksPage(state: AppState, where: string): string {
+  const { blocks, blockNotes } = state.repo;
+  const a = where ? aboutBlock(state.repo, where, { notes: 8, photos: 8 }) : undefined;
+  const r = a?.resolved;
+  const found = r && r.lat !== undefined;
+  const shown = found ? (r.status === "corner" ? r.blocks.slice(0, 4) : r.blocks.slice(0, 1)) : [];
+  const result = !a || !r ? "" : !found
+    ? `<p class="err">Couldn't place that. Try a street and its two cross streets (46th between Moraga and Noriega), or a corner (46th and Judah).</p>`
+    : `<h2>${esc(r.status === "corner" ? `The corner of ${r.label}` : r.label)}</h2>
+<ul>${shown.map((b) => `<li><b>${esc(b.name)}</b>${b.about ? `: ${esc(b.about)}` : ""}</li>`).join("")}</ul>
+${state.repo.blocksSources && shown.some((b) => b.about) ? `<p><small>${esc(state.repo.blocksSources)}</small></p>` : ""}
+${a.near.length ? `<h2>${a.widened ? "The closest, a few blocks off" : "On or near this block"}</h2>${noteList(a.near)}` : ""}
+${a.photos.length ? `<h2>Old photographs taken near here</h2><p>Pins in an archive's own map. Each link opens the photograph there, with its date and caption.</p>${noteList(a.photos)}` : ""}
+${a.area.length ? `<h2>The wider stretch</h2>${noteList(a.area)}` : ""}
+${a.everywhere.length ? `<h2>True of every block here</h2><ul class="srclist">${a.everywhere.map((n) => noteItem(n)).join("")}</ul>` : ""}
+${!a.near.length && !a.photos.length ? `<p>Nothing is pinned near this block yet.</p>` : ""}
+<p class="note">Know something about this block? <a href="/commons#share">Share it</a>, or <a href="/">tell Knowy</a>. A neighbor's own account wins over any of this.</p>`;
+  const body = `
+<p class="stamp"><a href="/commons">Commons</a></p>
+<h1>Block by block</h1>
+<p class="sub">History, the ground underfoot, and old photographs, pinned to the corner they belong to. ${blocks.length} blocks, ${blockNotes.filter((n) => n.kind !== "photo").length} notes, ${blockNotes.filter((n) => n.kind === "photo").length} photographs. Gathered from public sources as a place to start.</p>
+<form method="get" action="/commons/blocks" class="card">
+  <label for="b-where">Your block or corner <small>(streets only, no house number)</small></label><input type="text" id="b-where" name="where" maxlength="200" required value="${esc(where)}" placeholder="46th between Moraga and Noriega">
+  <p style="margin:16px 0 0"><button type="submit">Look it up</button></p>
+</form>
+${result}`;
+  return shell(state, "/commons", "Block by block", body);
 }
 
 /** A small page with a message and, optionally, one form. Used by the links in emails. */

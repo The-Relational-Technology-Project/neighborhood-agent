@@ -2,7 +2,7 @@ import { isActiveKnower } from "../adapters/repo.js";
 import { makeDraft } from "../agent/drafts.js";
 import { RateLimiter } from "../agent/budget.js";
 import { emailStewards, stewardAddresses } from "../notify/email.js";
-import { answerPage, commonsPage, confirmOfferPage, linkPage, notePage, stopPage } from "../web/commons.js";
+import { answerPage, blocksPage, commonsPage, confirmOfferPage, linkPage, notePage, stopPage } from "../web/commons.js";
 import { open, seal, sealReady } from "./seal.js";
 const DAY = 24 * 60 * 60 * 1000;
 const EMAIL = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/;
@@ -26,6 +26,7 @@ export function registerCommons(app, state, deps) {
     const placeLine = () => (state.repo.placeMd.match(/^#\s+(.+)$/m)?.[1] ?? "the neighborhood").replace(/^The /, "the ");
     const agentName = () => state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/)?.[1] ?? "The neighborhood agent";
     app.get("/commons", (c) => page(c));
+    app.get("/commons/blocks", (c) => c.html(blocksPage(state, (c.req.query("where") ?? "").slice(0, 200))));
     app.get("/commons/notes/:slug", (c) => {
         const doc = state.repo.archive.find((d) => d.file === `${c.req.param("slug")}.md`);
         return doc ? c.html(notePage(state, doc, "notes")) : c.notFound();

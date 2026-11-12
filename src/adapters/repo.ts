@@ -185,6 +185,28 @@ export const repoAdapter: Adapter = {
       });
     }
 
+    // Notes and photographs pinned to a spot. The place is in the title and the text, so a search
+    // for a corner finds them; about_block finds them by distance.
+    for (const n of repo.blockNotes) {
+      const photo = n.kind === "photo";
+      out.push({
+        ...base,
+        id: `repo:blocks:${n.id}`,
+        kind: "block-note",
+        title: photo ? `Old photograph: ${n.title}${n.years ? `, ${n.years}` : ""}` : n.title,
+        text: [
+          n.text,
+          n.at ? `Where: ${n.at}${n.extent ? ` (${n.extent})` : ""}.` : n.extent ? `Where: ${n.extent}.` : "",
+          !photo && n.years ? `When: ${n.years}.` : "",
+          n.sources?.length ? `${photo ? "Links, each credited by its name" : "Sources"}: ${n.sources.map((s) => `[${s.name}](${s.url})`).join(", ")}.` : "",
+        ].filter(Boolean).join("\n"),
+        url: n.photo?.page ?? n.sources?.[0]?.url ?? `${origin}/commons/blocks`,
+        location: n.at,
+        tags: [...(n.tags ?? []), n.kind ?? "note", "block"],
+        extra: { lat: n.lat, lng: n.lng, reach: n.reach ?? "spot", kind: n.kind },
+      });
+    }
+
     return out;
   },
 };

@@ -18,7 +18,7 @@ import { RateLimiter } from "../agent/budget.js";
 import type { AskCard } from "../agent/tools.js";
 import { emailStewards, stewardAddresses } from "../notify/email.js";
 import type { AppState } from "../state.js";
-import { answerPage, commonsPage, confirmOfferPage, linkPage, notePage, stopPage } from "../web/commons.js";
+import { answerPage, blocksPage, commonsPage, confirmOfferPage, linkPage, notePage, stopPage } from "../web/commons.js";
 import { open, seal, sealReady } from "./seal.js";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -59,6 +59,7 @@ export function registerCommons(app: Hono, state: AppState, deps: CommonsDeps): 
   const agentName = () => state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/)?.[1] ?? "The neighborhood agent";
 
   app.get("/commons", (c) => page(c));
+  app.get("/commons/blocks", (c) => c.html(blocksPage(state, (c.req.query("where") ?? "").slice(0, 200))));
   app.get("/commons/notes/:slug", (c) => {
     const doc = state.repo.archive.find((d) => d.file === `${c.req.param("slug")}.md`);
     return doc ? c.html(notePage(state, doc, "notes")) : c.notFound();
