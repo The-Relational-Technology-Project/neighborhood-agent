@@ -294,12 +294,16 @@ describe("near me", () => {
     expect(withNear[0].text).toBe(buildSystem(repo)[0].text);
   });
 
-  it("the page script offers one visit or always, keeps only the block, and can be turned off", async () => {
+  it("the page script asks once, leaves remembering to the browser's own prompt, keeps only the block in the tab, and can be turned off", async () => {
     const { chatScript } = await import("../src/web/chat.js");
-    expect(chatScript).toContain("Just this visit");
-    expect(chatScript).toContain("Always on this device");
+    expect(chatScript).toContain("Use my location");
+    expect(chatScript).not.toContain("Just this visit");
     expect(chatScript).toContain("Turn off");
-    expect(chatScript).toContain("JSON.stringify({ id: res.id, label: res.label })");
+    expect(chatScript).toContain("tab().setItem(KEY, JSON.stringify(near))");
+    // The device keeps only "off", never a place.
+    expect(chatScript).toContain("device().setItem(OFF, '1')");
     expect(chatScript).not.toMatch(/setItem\([^)]*(lat|coords)/);
+    expect(chatScript).toContain("p.state === 'granted'");
   });
+
 });
