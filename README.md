@@ -79,6 +79,8 @@ A place can pin what it knows to the map. The data repo's `blocks/` folder holds
 - **Without AI**, `/commons/blocks` looks a block up on a plain page.
 - **For other tools**, `GET /block.json?where=` (a block id, `lat,lng`, a block, or a corner; CORS open) and the MCP tool `about_block` return the same thing as JSON. A map built for the place can show a block's story by its id.
 
+- **Near me, if the neighbor wants.** Under the chat box, "Use my location" offers two choices: just this visit, or always on this device. The browser asks for permission, sends the point once to `POST /api/near`, and gets back the block it falls on. Only that block's id and name are kept, in the tab (`sessionStorage`) or on the device (`localStorage`), and sent with each message so the model can lead with what is close and call `about_block` without asking for cross streets. The point itself is never stored or logged, the server keeps nothing, and "Turn off" clears it. Outside the grid, nothing is kept. The widget only appears for a place that has `blocks/`.
+
 There is no geocoder and no outside call: the lookup matches street names against the grid the data repo carries, so it works for any place that lists its blocks. Pinned notes are also in the search index (kind `block-note`); photographs are left out of a general search so a street name still finds this week's events. A place with no `blocks/` folder loses nothing. Code: `src/blocks/geo.ts`.
 
 ## Run it

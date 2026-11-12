@@ -12,7 +12,7 @@ import { emailConfigured, emailStewards, stewardAddresses } from "./notify/email
 import { isoWeek } from "./agent/questionlog.js";
 import { getVitalSigns } from "./vitals/index.js";
 import { blockJson, handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
-import { aboutBlock } from "./blocks/geo.js";
+import { aboutBlock, resolveWhere } from "./blocks/geo.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
 import { askCard, registerCommons, relayOn } from "./knowers/routes.js";
@@ -134,6 +134,25 @@ export function createApp(state) {
         const res = await handleRpc(body, deps);
         return res ? c.json(res, 200, CORS) : c.body(null, 202, CORS);
     });
+    // "Near me": the browser sends a point once, we answer with the block it falls on, and the browser
+    // keeps only that block. The point is in the request body, not the address, and is never stored or logged.
+    app.post("/api/near", async (c) => {
+        if (!packReads.allow(clientIp(c)))
+            return c.json({ found: false, error: "Too many requests. Try again in a few minutes." }, 429);
+        let body;
+        try {
+            body = await c.req.json();
+        }
+        catch {
+            return c.json({ found: false }, 400);
+        }
+        const lat = Number(body.lat), lng = Number(body.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)
+            return c.json({ found: false }, 400);
+        const r = resolveWhere(state.repo.blocks, `${lat.toFixed(6)},${lng.toFixed(6)}`);
+        const b = r.status === "point" ? r.blocks[0] : undefined;
+        return c.json(b ? { found: true, id: b.id, label: b.name } : { found: false }, 200, { "cache-control": "no-store" });
+    });
     app.get("/api/vitals", async (c) => c.json(await safeVitals()));
     app.get("/api/sources", (c) => c.json(state.statuses));
     app.post("/api/chat", async (c) => {
@@ -156,7 +175,9 @@ export function createApp(state) {
         return streamSSE(c, async (stream) => {
             const send = (event, data) => stream.writeSSE({ event, data: JSON.stringify(data) });
             try {
-                const result = await state.agent.respond(messages, { repo: state.repo, index: state.index, log: state.log, relay: relayOn(state) }, {
+                // The block the neighbor chose to share, by id. Checked against the grid; anything else is ignored.
+                const near = typeof body.near === "string" ? state.repo.blocks.find((b) => b.id === body.near) : undefined;
+                const result = await state.agent.respond(messages, { repo: state.repo, index: state.index, log: state.log, relay: relayOn(state), near }, {
                     onText: (d) => void send("text", d),
                     onTool: (name) => void send("tool", name),
                     onAsk: (a) => void send("ask", askCard(a)),

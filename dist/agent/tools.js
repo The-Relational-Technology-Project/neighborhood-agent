@@ -42,7 +42,7 @@ export const toolDefinitions = [
         description: "What the notes hold about one block or corner: how high it sits and when its homes were built, the history and geology pinned on or near it, old photographs taken there with links, and what is true of the wider stretch. Use it for \"what's special about my block?\", \"what used to be at 46th and Judah?\", \"any old photos of my corner?\", \"what's under my house?\". It needs a block (a street and its two cross streets) or a corner (two streets). If the neighbor hasn't said which, ask for the cross streets, never a house number.",
         input_schema: {
             type: "object",
-            properties: { where: { type: "string", description: "Streets only: '46th Ave between Moraga and Noriega', 'Judah between 45th and 46th', or a corner, '46th and Judah'." } },
+            properties: { where: { type: "string", description: "Streets only: '46th Ave between Moraga and Noriega', 'Judah between 45th and 46th', a corner, '46th and Judah', or a block id you were given." } },
             required: ["where"],
             additionalProperties: false,
         },
