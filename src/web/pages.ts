@@ -84,7 +84,7 @@ ${aboutLine(state) ? `<p class="note">${esc(aboutLine(state))}</p>` : ""}
   <div class="card"><b class="k">It reads</b><p>Public neighborhood information only: sites neighbors already built, public feeds, and the neighborhood's own notes. Everything it reads is on the <a href="/sources">sources page</a>.</p></div>
   <div class="card"><b class="k">It cites</b><p>Every fact comes with where it came from and when. No source, no claim. If it doesn't know, it says so and names who might.</p></div>
   <div class="card"><b class="k">It checks before it adds</b><p>When you ask it to add or fix something, it shows you what it'll send. A neighborhood steward looks it over before it's added. What's added is public.</p></div>
-  <div class="card"><b class="k">It keeps nothing</b><p>No accounts, no memory of conversations. The only things that last are what you chose to send, and an anonymous tally of what people ask about. Sharing your location is optional: only the block you're on is used, it stays in your browser, and you can turn it off any time.</p></div>
+  <div class="card"><b class="k">It keeps nothing</b><p>No accounts, no memory of conversations. The only things that last are what you chose to send, and an anonymous tally of what people ask about. Sharing your location is optional: your browser asks first, only the block you're on is used, and you can turn it off any time.</p></div>
 </div>
 <h2>Who looks after it</h2>
 <p>A small group of neighbors, the stewards. They set how Knowy sounds, what it reads, and what it's been corrected on, and they look over everything neighbors send in.</p>

@@ -98,16 +98,15 @@ export const chatScript = String.raw `
         .catch(function(){ yes.disabled = false; no.disabled = false; });
     };
   }
-  // "Near me": optional. The browser asks, the server names the block, and only the block is kept:
-  // in this tab for one visit, or on this device until turned off. The exact spot is never kept.
-  var nearBox = document.getElementById('near'), near = null, KEY = 'knowy.near';
-  function store(kind){ try { return kind === 'always' ? window.localStorage : window.sessionStorage; } catch (e) { return null; } }
-  function readNear(){
-    var kinds = ['visit', 'always'];
-    for (var i = 0; i < kinds.length; i++) { try { var v = JSON.parse(store(kinds[i]).getItem(KEY)); if (v && v.id && v.label) { v.mode = kinds[i]; return v; } } catch (e) {} }
-    return null;
-  }
-  function forget(){ ['visit', 'always'].forEach(function(k){ try { store(k).removeItem(KEY); } catch (e) {} }); near = null; }
+  // "Near me": optional, one tap. The browser's own prompt is the consent and the memory: "allow this
+  // time" lasts the visit, "always allow" lets a later visit find the block without asking. We keep
+  // only the block, in this tab, and a note on this device if the neighbor turned it off.
+  var nearBox = document.getElementById('near'), near = null, KEY = 'knowy.near', OFF = 'knowy.near.off';
+  function tab(){ try { return window.sessionStorage; } catch (e) { return null; } }
+  function device(){ try { return window.localStorage; } catch (e) { return null; } }
+  function isOff(){ try { return device().getItem(OFF) === '1'; } catch (e) { return false; } }
+  function setOff(v){ try { if (v) device().setItem(OFF, '1'); else device().removeItem(OFF); device().removeItem(KEY); } catch (e) {} }
+  function forget(){ try { tab().removeItem(KEY); } catch (e) {} near = null; }
   function link(text, fn){ var b = el('button', null, text); b.type = 'button'; b.onclick = fn; return b; }
   function drawNear(msg){
     if (!nearBox) return;
@@ -116,41 +115,38 @@ export const chatScript = String.raw `
     if (near) {
       nearBox.appendChild(document.createTextNode('Answering for near '));
       nearBox.appendChild(el('b', null, near.label));
-      nearBox.appendChild(document.createTextNode(near.mode === 'always' ? ' (remembered on this device). ' : ' (this visit only). '));
-      nearBox.appendChild(link('Update', function(){ locate(near.mode); }));
+      nearBox.appendChild(document.createTextNode('. '));
+      nearBox.appendChild(link('Update', function(){ locate(); }));
       nearBox.appendChild(document.createTextNode(' · '));
-      nearBox.appendChild(link('Turn off', function(){ forget(); drawNear('Off. Nothing about your location is kept.'); }));
+      nearBox.appendChild(link('Turn off', function(){ forget(); setOff(true); drawNear('Off.'); }));
     } else {
-      nearBox.appendChild(link('Use my location', askNear));
+      var b = link('Use my location', function(){ setOff(false); locate(); });
+      b.title = 'Your browser will ask. Only the block you’re on is used, never your exact spot.';
+      nearBox.appendChild(b);
     }
   }
-  function askNear(){
-    nearBox.textContent = 'Share the block you’re on so answers fit where you are? Your browser will ask. Only the block is used, never your exact spot.';
-    var row = el('div', 'choices');
-    row.appendChild(link('Just this visit', function(){ locate('visit'); }));
-    row.appendChild(link('Always on this device', function(){ locate('always'); }));
-    row.appendChild(link('No thanks', function(){ drawNear(); }));
-    nearBox.appendChild(row);
-  }
-  function locate(mode, quiet){
-    if (!quiet) nearBox.textContent = 'Finding your block…';
+  function locate(quiet){
+    if (!quiet) nearBox.textContent = 'Finding your block… only the block is used, never your exact spot.';
     navigator.geolocation.getCurrentPosition(function(pos){
       fetch('/api/near', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }) })
         .then(function(r){ return r.json(); })
         .then(function(res){
           if (!res.found) { if (quiet) return; forget(); drawNear('You’re outside the blocks I know, so I’ll answer for the whole neighborhood.'); return; }
-          forget(); near = { id: res.id, label: res.label, mode: mode };
-          try { store(mode).setItem(KEY, JSON.stringify({ id: res.id, label: res.label })); } catch (e) {}
+          near = { id: res.id, label: res.label };
+          try { tab().setItem(KEY, JSON.stringify(near)); } catch (e) {}
           drawNear();
         })
         .catch(function(){ if (!quiet) drawNear('Couldn’t look that up just now.'); });
     }, function(){ if (!quiet) drawNear('No location shared. That’s fine.'); }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
   }
   if (nearBox && navigator.geolocation) {
-    near = readNear(); drawNear();
-    // "Always": refresh quietly, and only when the browser already has permission, so nobody is prompted on arrival.
-    if (near && near.mode === 'always' && navigator.permissions && navigator.permissions.query) {
-      navigator.permissions.query({ name: 'geolocation' }).then(function(p){ if (p.state === 'granted') locate('always', true); }).catch(function(){});
+    try { var v = JSON.parse(tab().getItem(KEY)); if (v && v.id && v.label) near = v; } catch (e) {}
+    try { device().removeItem(KEY); } catch (e) {}
+    drawNear();
+    // Arriving with nothing in the tab: look only if the browser was already told "always allow" and
+    // the neighbor hasn't turned this off. Nobody is prompted on arrival.
+    if (!near && !isOff() && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then(function(p){ if (p.state === 'granted') locate(true); }).catch(function(){});
     }
   }
   function setBusy(b){ send.disabled = b; box.disabled = b; }
