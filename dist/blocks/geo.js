@@ -112,11 +112,12 @@ export function aboutBlock(repo, where, opts = {}) {
     let photos = photoHits.filter((x) => x.meters <= 220);
     if (!photos.length)
         photos = photoHits.filter((x) => x.meters <= 450);
-    const area = all.filter((x) => reachOf(x.note) === "area" && x.meters <= (x.note.radius_m ?? 800));
+    const inBox = (b) => p.lat >= b[0] && p.lat <= b[2] && p.lng >= b[1] && p.lng <= b[3];
+    const area = all.filter((x) => reachOf(x.note) === "area" && (Array.isArray(x.note.box) && x.note.box.length === 4 ? inBox(x.note.box) : x.meters <= (x.note.radius_m ?? 800)));
     const every = repo.blockNotes.filter((n) => reachOf(n) === "everywhere");
     const seed = hash(resolved.blocks[0]?.id ?? resolved.label);
     const everywhere = every.length <= 2 ? every : [every[seed % every.length], every[(seed + 1 + (seed >>> 8) % (every.length - 1)) % every.length]];
-    return { resolved, near: near.slice(0, opts.notes ?? 6), photos: photos.slice(0, opts.photos ?? 5), area: area.slice(0, 4), everywhere, widened };
+    return { resolved, near: near.slice(0, opts.notes ?? 6), photos: photos.slice(0, opts.photos ?? 5), area: area.slice(0, 5), everywhere, widened };
 }
 const srcLine = (n) => (n.sources?.length ? ` Sources: ${n.sources.map((s) => `[${s.name}](${s.url})`).join(", ")}.` : "");
 /** One note as the model and other tools read it. */

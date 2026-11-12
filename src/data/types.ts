@@ -165,6 +165,8 @@ export interface BlockNote {
   /** spot: this corner and the blocks beside it. area: a wider stretch (radius_m). everywhere: every block. */
   reach?: "spot" | "area" | "everywhere";
   radius_m?: number;
+  /** For an area that isn't round (a strip of beach, a band of avenues): [south, west, north, east]. */
+  box?: [number, number, number, number];
   extent?: string;
   years?: string;
   tags?: string[];

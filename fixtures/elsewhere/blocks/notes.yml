@@ -36,3 +36,11 @@ notes:
     lat: 45.0500
     lng: -120.0500
     text: Stone for the courthouse came from here.
+  - id: river-bank
+    title: The river bank floods
+    kind: geology
+    reach: area
+    box: [45.0000, -120.0003, 45.0030, -119.9990]
+    lat: 45.0015
+    lng: -119.9994
+    text: The blocks east of Main Street flooded in 1964.

@@ -225,7 +225,7 @@ describe("block by block", () => {
   it("loads the grid and the pinned notes, and skips nothing that has a place", async () => {
     const { repo, index } = await loadFixture();
     expect(repo.blocks.map((b) => b.id)).toEqual(["main-1", "main-2", "second-main", "second-river", "mill-1"]);
-    expect(repo.blockNotes.map((n) => n.id)).toEqual(["ferry-landing", "mill-photo", "floodplain", "far-away"]);
+    expect(repo.blockNotes.map((n) => n.id)).toEqual(["ferry-landing", "mill-photo", "floodplain", "far-away", "river-bank"]);
     expect(index.get("repo:blocks:ferry-landing")).toMatchObject({ kind: "block-note", location: "Main St & 2nd Ave" });
     expect(index.get("repo:blocks:ferry-landing")?.text).toContain("[Elsewhere Historical Society](https://example.org/history)");
   });
@@ -260,6 +260,9 @@ describe("block by block", () => {
     expect(out).toContain("River silt under every street");
     expect(out).not.toContain("old quarry");
     expect(await runTool("about_block", { where: "Main St" }, ctx)).toContain("Never ask for a house number");
+    // An area with a box applies inside it and not outside.
+    expect(out).toContain("The river bank floods");
+    expect(await runTool("about_block", { where: "Mill Rd between 1st and 2nd" }, ctx)).not.toContain("The river bank floods");
   });
 
   it("keeps photographs out of a general search but finds them when asked for block notes", async () => {
