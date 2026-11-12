@@ -39,7 +39,7 @@ export class Agent {
       ev.onText?.(RESTING);
       return { text: RESTING, tools_used: [], drafts: [], stop_reason: "budget", usage: { input_tokens: 0, output_tokens: 0 } };
     }
-    const system = buildSystem(tools.repo);
+    const system = buildSystem(tools.repo, tools.near);
     const messages: Anthropic.MessageParam[] = history.slice(-20).map((m) => ({ role: m.role, content: m.content }));
     if (!messages.length || messages[0].role !== "user") throw new Error("conversation must start with the neighbor");
 

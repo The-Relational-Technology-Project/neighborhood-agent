@@ -279,3 +279,27 @@ describe("block by block", () => {
     expect(buildSystem(bare).map((b) => b.text).join("\n")).toContain("None kept for this place.");
   });
 });
+
+describe("near me", () => {
+  it("tells the model the block, not a point, and only when the neighbor shared one", async () => {
+    const { repo } = await loadFixture();
+    const plain = buildSystem(repo).map((b) => b.text).join("\n");
+    expect(plain).not.toContain("chose to share roughly where they are");
+    const withNear = buildSystem(repo, repo.blocks[0]);
+    const last = withNear[withNear.length - 1].text;
+    expect(last).toContain("Main St, 1st Ave to 2nd Ave (block id main-1)");
+    expect(last).toContain("not necessarily where they live");
+    expect(last).not.toMatch(/45\.\d+/);
+    // The cached part of the prompt is the same with or without a location.
+    expect(withNear[0].text).toBe(buildSystem(repo)[0].text);
+  });
+
+  it("the page script offers one visit or always, keeps only the block, and can be turned off", async () => {
+    const { chatScript } = await import("../src/web/chat.js");
+    expect(chatScript).toContain("Just this visit");
+    expect(chatScript).toContain("Always on this device");
+    expect(chatScript).toContain("Turn off");
+    expect(chatScript).toContain("JSON.stringify({ id: res.id, label: res.label })");
+    expect(chatScript).not.toMatch(/setItem\([^)]*(lat|coords)/);
+  });
+});

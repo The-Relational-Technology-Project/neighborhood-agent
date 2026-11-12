@@ -98,6 +98,61 @@ export const chatScript = String.raw `
         .catch(function(){ yes.disabled = false; no.disabled = false; });
     };
   }
+  // "Near me": optional. The browser asks, the server names the block, and only the block is kept:
+  // in this tab for one visit, or on this device until turned off. The exact spot is never kept.
+  var nearBox = document.getElementById('near'), near = null, KEY = 'knowy.near';
+  function store(kind){ try { return kind === 'always' ? window.localStorage : window.sessionStorage; } catch (e) { return null; } }
+  function readNear(){
+    var kinds = ['visit', 'always'];
+    for (var i = 0; i < kinds.length; i++) { try { var v = JSON.parse(store(kinds[i]).getItem(KEY)); if (v && v.id && v.label) { v.mode = kinds[i]; return v; } } catch (e) {} }
+    return null;
+  }
+  function forget(){ ['visit', 'always'].forEach(function(k){ try { store(k).removeItem(KEY); } catch (e) {} }); near = null; }
+  function link(text, fn){ var b = el('button', null, text); b.type = 'button'; b.onclick = fn; return b; }
+  function drawNear(msg){
+    if (!nearBox) return;
+    nearBox.hidden = false; nearBox.textContent = '';
+    if (msg) { nearBox.appendChild(document.createTextNode(msg + ' ')); }
+    if (near) {
+      nearBox.appendChild(document.createTextNode('Answering for near '));
+      nearBox.appendChild(el('b', null, near.label));
+      nearBox.appendChild(document.createTextNode(near.mode === 'always' ? ' (remembered on this device). ' : ' (this visit only). '));
+      nearBox.appendChild(link('Update', function(){ locate(near.mode); }));
+      nearBox.appendChild(document.createTextNode(' · '));
+      nearBox.appendChild(link('Turn off', function(){ forget(); drawNear('Off. Nothing about your location is kept.'); }));
+    } else {
+      nearBox.appendChild(link('Use my location', askNear));
+    }
+  }
+  function askNear(){
+    nearBox.textContent = 'Share the block you’re on so answers fit where you are? Your browser will ask. Only the block is used, never your exact spot.';
+    var row = el('div', 'choices');
+    row.appendChild(link('Just this visit', function(){ locate('visit'); }));
+    row.appendChild(link('Always on this device', function(){ locate('always'); }));
+    row.appendChild(link('No thanks', function(){ drawNear(); }));
+    nearBox.appendChild(row);
+  }
+  function locate(mode, quiet){
+    if (!quiet) nearBox.textContent = 'Finding your block…';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      fetch('/api/near', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }) })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (!res.found) { if (quiet) return; forget(); drawNear('You’re outside the blocks I know, so I’ll answer for the whole neighborhood.'); return; }
+          forget(); near = { id: res.id, label: res.label, mode: mode };
+          try { store(mode).setItem(KEY, JSON.stringify({ id: res.id, label: res.label })); } catch (e) {}
+          drawNear();
+        })
+        .catch(function(){ if (!quiet) drawNear('Couldn’t look that up just now.'); });
+    }, function(){ if (!quiet) drawNear('No location shared. That’s fine.'); }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+  }
+  if (nearBox && navigator.geolocation) {
+    near = readNear(); drawNear();
+    // "Always": refresh quietly, and only when the browser already has permission, so nobody is prompted on arrival.
+    if (near && near.mode === 'always' && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then(function(p){ if (p.state === 'granted') locate('always', true); }).catch(function(){});
+    }
+  }
   function setBusy(b){ send.disabled = b; box.disabled = b; }
   var suggest = document.getElementById('suggest');
   if (suggest) suggest.addEventListener('click', function(ev){
@@ -109,7 +164,7 @@ export const chatScript = String.raw `
     var q = box.value.trim(); if (!q) return;
     box.value = ''; grow(); if (touch) box.blur(); if (suggest) { suggest.remove(); suggest = null; } addMsg('user', q); anchor = log.lastChild; userScrolled = false; history.push({ role: 'user', content: q }); setBusy(true);
     var out = addMsg('assistant', ''); var text = '';
-    fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: history }) })
+    fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(near ? { messages: history, near: near.id } : { messages: history }) })
       .then(function(r){
         if (!r.ok) { return r.json().then(function(j){ throw new Error(j.error || ('error ' + r.status)); }); }
         var reader = r.body.getReader(), dec = new TextDecoder(), buf = '';
@@ -121,7 +176,7 @@ export const chatScript = String.raw `
             var evm = chunk.match(/^event: (\w+)\ndata: (.*)$/s); if (!evm) return;
             var data = JSON.parse(evm[2]);
             if (evm[1] === 'text') { text += data; out.textContent = ''; out.appendChild(linkify(text)); follow(); }
-            else if (evm[1] === 'tool') { var t = el('div', 'tool', ({ search_data: 'checking the neighborhood notes…', get_vital_signs: 'checking the tide and the plovers…', lookup_person_or_place: 'looking that up…', draft_pr: 'drafting that…', ask_a_neighbor: 'finding a neighbor to ask…', city_311: 'checking 311…' })[data] || 'looking…'); log.insertBefore(t, out.parentNode.nextSibling); }
+            else if (evm[1] === 'tool') { var t = el('div', 'tool', ({ search_data: 'checking the neighborhood notes…', get_vital_signs: 'checking the tide and the plovers…', lookup_person_or_place: 'looking that up…', draft_pr: 'drafting that…', ask_a_neighbor: 'finding a neighbor to ask…', city_311: 'checking 311…', about_block: 'looking up that block…' })[data] || 'looking…'); log.insertBefore(t, out.parentNode.nextSibling); }
             else if (evm[1] === 'draft') { addDraft(data); }
             else if (evm[1] === 'ask') { addAsk(data); }
             else if (evm[1] === 'error') { out.textContent = data; out.classList.add('err'); }

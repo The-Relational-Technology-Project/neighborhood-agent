@@ -141,6 +141,11 @@ button,a,textarea{-webkit-tap-highlight-color:rgba(231,157,27,.18)}
 form.ask{display:flex;gap:8px;align-items:flex-end}
 form.ask textarea{flex:1;font:inherit;font-size:16px;line-height:1.4;padding:12px 16px;border:1.5px solid var(--rule);border-radius:24px;background:var(--card);color:var(--ink);resize:none;min-height:48px;max-height:132px;overflow-y:auto}
 form.ask button{min-height:48px;min-width:72px;padding:0 20px}
+.near{font-size:13.5px;color:var(--quiet);margin:0 0 8px 6px;line-height:1.5}
+.near button{font:inherit;font-weight:700;background:none;border:0;border-radius:0;padding:4px 0;min-height:0;color:var(--quiet);text-decoration:underline;text-decoration-color:var(--brown);text-underline-offset:2px;cursor:pointer}
+.near button:active{transform:none}
+.near .choices{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:2px}
+.near b{color:var(--ink)}
 .draft{border:2px dashed var(--amber);border-radius:18px;padding:12px 14px;margin:8px 0 12px;background:var(--card)}
 .draft .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .draft b.k{display:block;font-family:var(--display);font-weight:600;font-size:15px;margin:0 0 8px}
