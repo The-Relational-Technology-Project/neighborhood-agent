@@ -71,6 +71,11 @@ export function resolveWhere(blocks, where) {
         const b = whole[0].b;
         return { status: "block", label: b.name, lat: b.lat, lng: b.lng, blocks: [b] };
     }
+    // A street that is one block by itself ("Lakeshore Dr"), named and nothing else.
+    if (best === 1 && top.length === 1 && top[0].keys.includes(q)) {
+        const b = top[0].b;
+        return { status: "block", label: b.name, lat: b.lat, lng: b.lng, blocks: [b] };
+    }
     if (best >= 2 && top.length <= 6) {
         // Two streets named: the corner where they meet, taken as the middle of the blocks that touch it.
         const named = [...new Set(top.flatMap((s) => s.b.streets.filter((st) => has(q, streetKey(st)))))];
