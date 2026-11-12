@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCorrections, SearchIndex } from "../src/data/index.js";
 import { loadFixture } from "./helpers.js";
+import type { NRecord } from "../src/data/types.js";
 
 describe("optional sources", () => {
   it("skip quietly when their key isn't set", async () => {
@@ -75,5 +76,19 @@ describe("index over the fixture repo", () => {
     expect(all.some((e) => e.title === "River Day")).toBe(true);
     const empty = new SearchIndex([]);
     expect(empty.search("anything")).toEqual([]);
+  });
+});
+
+describe("ranking", () => {
+  const rec = (id: string, sourceId: string, title: string, text: string): NRecord => ({ id, kind: "note", title, text, source: { id: sourceId, name: sourceId, url: "https://example.org" }, fetched_at: "2026-01-01T00:00:00Z" });
+  it("a strong match from another source beats a weak match from the repo; equal matches still favor the repo", () => {
+    const index = new SearchIndex([
+      rec("repo:a", "repo", "The history of the mill", "Long ago a veteran of the war kept the hospital garden by the river."),
+      rec("recs:b", "recs", "Riverside Pet Hospital", "A vet for dogs and cats."),
+      rec("repo:c", "repo", "Tool library", "Borrow a ladder."),
+      rec("feed:d", "feed", "Tool library", "Borrow a ladder."),
+    ]);
+    expect(index.search("Riverside Pet Hospital")[0].id).toBe("recs:b");
+    expect(index.search("tool library").map((r) => r.id).slice(0, 2)).toEqual(["repo:c", "feed:d"]);
   });
 });

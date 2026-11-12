@@ -36,7 +36,9 @@ export class SearchIndex {
     search(query, opts = {}) {
         const today = localDate();
         const limit = opts.limit ?? 12;
-        let hits = this.mini.search(query).map((h) => this.byId.get(String(h.id))).filter(Boolean);
+        // How well each record matched, so the nudge below can't bury a good match under a weak one.
+        const rel = new Map();
+        let hits = this.mini.search(query).map((h) => { rel.set(String(h.id), h.score); return this.byId.get(String(h.id)); }).filter(Boolean);
         if (opts.kinds?.length)
             hits = hits.filter((r) => opts.kinds.includes(r.kind));
         // Old photographs are many and their captions are street names; keep them out of a general
@@ -47,8 +49,9 @@ export class SearchIndex {
             hits = hits.filter((r) => !r.date || r.date >= today);
         if (opts.on)
             hits = hits.filter((r) => r.date === opts.on);
-        // Nudge corrected and repo records up: they are the neighborhood's own words.
-        hits.sort((a, b) => score(b) - score(a));
+        // Nudge corrected and repo records up: they are the neighborhood's own words. A nudge, not a
+        // trump card: a record that matches much better still comes first, whatever its source.
+        hits.sort((a, b) => (rel.get(b.id) ?? 0) * nudge(b) - (rel.get(a.id) ?? 0) * nudge(a));
         return hits.slice(0, limit);
     }
     byKind(kind, opts = {}) {
@@ -62,8 +65,8 @@ export class SearchIndex {
         return list.slice(0, opts.limit ?? 50);
     }
 }
-function score(r) {
-    return (r.corrections?.length ? 2 : 0) + (r.source.id === "repo" ? 1 : 0);
+function nudge(r) {
+    return (r.corrections?.length ? 1.5 : 1) * (r.source.id === "repo" ? 1.15 : 1);
 }
 /** YYYY-MM-DD in the neighborhood's time zone. */
 export function localDate(d = new Date(), tz = process.env.TZ_NAME ?? "America/Los_Angeles") {
