@@ -11,7 +11,8 @@
  * the same index the chat does, with the same privacy filters already applied upstream.
  */
 import type { AppState } from "../state.js";
-import type { NRecord, RecordKind } from "../data/types.js";
+import type { BlockNote, NRecord, RecordKind } from "../data/types.js";
+import { aboutBlock, formatAbout, type AboutBlock } from "../blocks/geo.js";
 import { localDate } from "../data/index.js";
 import { getVitalSigns } from "../vitals/index.js";
 import { formatRecord, runTool } from "../agent/tools.js";
@@ -20,7 +21,7 @@ import { makeDraft, type Draft } from "../agent/drafts.js";
 export const PACK_VERSION = "0.1.0";
 
 /** Kinds the pack serves. Corrections are folded into the records they correct; archive notes stay in the repo. */
-const PACK_KINDS: RecordKind[] = ["event", "place", "group", "resource", "person", "recommendation", "development", "proposal", "constituent", "note"];
+const PACK_KINDS: RecordKind[] = ["event", "place", "group", "resource", "person", "recommendation", "development", "proposal", "constituent", "note", "block-note"];
 
 export const RULES = [
   "Credit the source on screen: name the source each record came from (record.source.name) and \"via Knowy Plover, Outer Sunset neighbors\", with a link to https://knowy.org/sources.",
@@ -139,6 +140,27 @@ export async function placePack(state: AppState, base: string) {
   };
 }
 
+/** One block lookup as plain JSON, for the MCP tool and GET /block.json. */
+export function blockJson(a: AboutBlock, sources?: string) {
+  const note = (x: { note: BlockNote; meters?: number; far?: string }) => ({ id: x.note.id, kind: x.note.kind ?? "note", title: x.note.title, text: x.note.text, at: x.note.at, lat: x.note.lat, lng: x.note.lng, years: x.note.years, extent: x.note.extent, sources: x.note.sources ?? [], photo: x.note.photo, ...(x.meters !== undefined ? { meters: Math.round(x.meters), how_far: x.far } : {}) });
+  const r = a.resolved;
+  return {
+    found: r.lat !== undefined,
+    kind: r.status,
+    label: r.label,
+    lat: r.lat,
+    lng: r.lng,
+    blocks: r.blocks.slice(0, 4).map((b) => ({ id: b.id, name: b.name, lat: b.lat, lng: b.lng, about: b.about, elev_ft: b.elev_ft, built: b.built })),
+    block_figures_from: sources,
+    near: a.near.map(note),
+    photos: a.photos.map(note),
+    area: a.area.map(note),
+    everywhere: a.everywhere.map((n) => note({ note: n })),
+    hint: r.hint,
+    license: "CC BY 4.0 for the notes; each photograph keeps its archive's terms. Link to the photograph's page and credit it as shown.",
+  };
+}
+
 /* ------------------------------------------------------------------ MCP */
 
 interface McpTool { name: string; description: string; inputSchema: Record<string, unknown> }
@@ -184,6 +206,11 @@ export const mcpTools: McpTool[] = [
     name: "get",
     description: "One record by its id (from search or list).",
     inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+  },
+  {
+    name: "about_block",
+    description: "What the neighborhood's notes hold about one block or corner: how high it sits, when its homes were built, history and geology pinned on or near it, old photographs taken there (with links and credits), and what is true of the wider stretch. Give a block id from the grid, 'lat,lng', a block ('46th Ave between Moraga and Noriega'), or a corner ('46th and Judah'). Never send a house number.",
+    inputSchema: { type: "object", properties: { where: { type: "string", description: "A block id, 'lat,lng', a block in words, or a corner." } }, required: ["where"], additionalProperties: false },
   },
   {
     name: "vital_signs",
@@ -276,6 +303,13 @@ export async function callTool(name: string, args: Json, deps: McpDeps): Promise
       const r = state.index.get(String(args.id ?? ""));
       if (!r || !PACK_KINDS.includes(r.kind)) return fail("No record with that id.");
       return text(formatRecord(r), { record: recordJson(r) });
+    }
+    case "about_block": {
+      if (!state.repo.blocks.length) return fail("This place keeps no block-by-block notes.");
+      const about = aboutBlock(state.repo, String(args.where ?? ""));
+      const r = about.resolved;
+      if (r.lat === undefined) return fail(formatAbout(about));
+      return text(formatAbout(about, { sources: state.repo.blocksSources }), blockJson(about, state.repo.blocksSources));
     }
     case "vital_signs": {
       const signs = await getVitalSigns(state.repo);

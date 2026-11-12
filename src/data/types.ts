@@ -15,7 +15,9 @@ export type RecordKind =
   /** A neighbor who offered to be asked: a public description, never a name or address. */
   | "knower"
   /** Something a neighbor shared into the commons, in their own account. */
-  | "knowledge";
+  | "knowledge"
+  /** A note or an old photograph pinned to a spot on the map (blocks/). */
+  | "block-note";
 
 export interface SourceRef {
   id: string;
@@ -134,6 +136,43 @@ export interface Resource {
   source?: string;
 }
 
+/** One block of the place (blocks/grid.yml): a stretch of street between two cross streets. */
+export interface Block {
+  id: string;
+  /** "46th Ave, Moraga to Noriega" */
+  name: string;
+  /** The street and its cross streets, for matching what a neighbor types. */
+  streets: string[];
+  lat: number;
+  lng: number;
+  /** A line or two that is true of this block alone (height above the sea, when its homes were built). */
+  about?: string;
+  elev_ft?: number;
+  built?: number;
+}
+
+/** A note or a photograph pinned to a spot (blocks/*.yml). */
+export interface BlockNote {
+  id: string;
+  title: string;
+  text: string;
+  /** history, geology, ecology, photo, or anything a steward writes. */
+  kind?: string;
+  /** The corner or block in words: "48th Ave & Judah". */
+  at?: string;
+  lat: number;
+  lng: number;
+  /** spot: this corner and the blocks beside it. area: a wider stretch (radius_m). everywhere: every block. */
+  reach?: "spot" | "area" | "everywhere";
+  radius_m?: number;
+  extent?: string;
+  years?: string;
+  tags?: string[];
+  sources?: Array<{ name: string; url: string }>;
+  photo?: { page: string; credit?: string };
+  file: string;
+}
+
 export interface RecLink { label: string; url: string }
 
 export interface Rec {
@@ -179,6 +218,12 @@ export interface DataRepo {
   knowers: FrontmatterDoc[];
   /** What neighbors shared into the commons (knowledge/). */
   knowledge: FrontmatterDoc[];
+  /** The place's blocks, from blocks/grid.yml. Empty when the place keeps none. */
+  blocks: Block[];
+  /** Notes and photographs pinned to a spot, from the other files under blocks/. */
+  blockNotes: BlockNote[];
+  /** Where the block figures came from (blocks/grid.yml meta.sources). */
+  blocksSources?: string;
   /** Neighbors' recommendations, one file per source under recs/. */
   recs: RecsFile[];
   questionLogMd: string;

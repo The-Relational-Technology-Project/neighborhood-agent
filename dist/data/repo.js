@@ -211,6 +211,42 @@ export async function loadRepo(root) {
         }
     }
     catch { /* no recs folder */ }
+    // blocks/: one file with the list of blocks (a `blocks:` list), any number with pinned notes (`notes:`).
+    const blocks = [];
+    const blockNotes = [];
+    let blocksSources;
+    const num = (v) => (typeof v === "number" ? v : Number(v));
+    try {
+        for (const name of (await fs.readdir(path.join(root, "blocks"))).filter((n) => /\.ya?ml$/.test(n)).sort()) {
+            try {
+                const doc = YAML.parse(await readText(path.join(root, "blocks", name)));
+                for (const raw of Array.isArray(doc?.blocks) ? doc.blocks : []) {
+                    const b = raw;
+                    if (!b?.id || !b.name || !Number.isFinite(num(b.lat)) || !Number.isFinite(num(b.lng)))
+                        continue;
+                    blocks.push({ ...b, id: String(b.id), name: String(b.name), streets: Array.isArray(b.streets) ? b.streets.map(String) : [], lat: num(b.lat), lng: num(b.lng) });
+                }
+                if (Array.isArray(doc?.blocks) && doc?.meta?.sources)
+                    blocksSources = String(doc.meta.sources);
+                const seen = new Set(blockNotes.map((n) => n.id));
+                for (const raw of Array.isArray(doc?.notes) ? doc.notes : []) {
+                    const n = raw;
+                    if (!n?.title || !n.text || !Number.isFinite(num(n.lat)) || !Number.isFinite(num(n.lng)))
+                        continue;
+                    let id = String(n.id ?? n.title).toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "") || "note";
+                    while (seen.has(id))
+                        id += "-2";
+                    seen.add(id);
+                    blockNotes.push({ ...n, id, title: String(n.title), text: String(n.text).trim(), lat: num(n.lat), lng: num(n.lng), file: `blocks/${name}` });
+                }
+            }
+            catch (err) {
+                console.warn(`[repo] could not parse blocks/${name}:`, err.message);
+                loadErrors.push(`blocks/${name}: ${err.message.split("\n")[0]}`);
+            }
+        }
+    }
+    catch { /* no blocks folder */ }
     return {
         root,
         sha: await repoSha(root),
@@ -233,6 +269,9 @@ export async function loadRepo(root) {
         knowers: await readDocs(path.join(root, "knowers")),
         knowledge: await readDocs(path.join(root, "knowledge")),
         recs,
+        blocks,
+        blockNotes,
+        blocksSources,
         questionLogMd: await readText(path.join(root, "log", "questions.md")),
         settings: parseSettings(placeMd),
     };

@@ -22,7 +22,7 @@ describe("the place pack over MCP", () => {
     expect(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, deps)).toBeUndefined();
     const list = await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, deps);
     const names = (list?.result as { tools: { name: string }[] }).tools.map((t) => t.name);
-    expect(names).toEqual(["about_place", "search", "list", "get", "vital_signs", "city_311", "suggest_source"]);
+    expect(names).toEqual(["about_place", "search", "list", "get", "about_block", "vital_signs", "city_311", "suggest_source"]);
     const bad = await handleRpc({ jsonrpc: "2.0", id: 3, method: "nope" }, deps);
     expect((bad?.error as { code: number }).code).toBe(-32601);
   });

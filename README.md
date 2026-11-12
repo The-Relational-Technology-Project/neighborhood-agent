@@ -25,7 +25,7 @@ This repo is the code. The neighborhood's data lives in a separate repo that the
      /  /about  /sources  /proposals  /correct  /contact   POST /api/chat (SSE)   POST /api/confirm
                          |
                      the agent  (Claude via the Messages API, tool use)
-        search_data · get_vital_signs · lookup_person_or_place · draft_pr
+        search_data · about_block · get_vital_signs · lookup_person_or_place · draft_pr
                          |                                   \
                    search index                           draft held in memory
             (MiniSearch over normalized records)          until the neighbor taps yes
@@ -71,6 +71,16 @@ What keeps it safe:
 
 Code: `src/knowers/` (seal, store, routes), `src/web/commons.ts`.
 
+## Block by block
+
+A place can pin what it knows to the map. The data repo's `blocks/` folder holds a list of the place's blocks (`grid.yml`: an id, a name, the street and its cross streets, a point, and a line that is true of that block alone) and any number of files of pinned notes: history at a corner, the ground under a street, an old photograph's page in an archive. Each note has a point, its sources, and a reach (`spot`, `area` with a radius, or `everywhere`).
+
+- **In the chat**, the model calls `about_block` with a block ("46th between Moraga and Noriega") or a corner ("46th and Judah"). It gets the block's own line, what is pinned on or near it with distance and direction, photographs nearby as links, and what is true of the wider stretch. It never needs a house number, and a leading one is dropped.
+- **Without AI**, `/commons/blocks` looks a block up on a plain page.
+- **For other tools**, `GET /block.json?where=` (a block id, `lat,lng`, a block, or a corner; CORS open) and the MCP tool `about_block` return the same thing as JSON. A map built for the place can show a block's story by its id.
+
+There is no geocoder and no outside call: the lookup matches street names against the grid the data repo carries, so it works for any place that lists its blocks. Pinned notes are also in the search index (kind `block-note`); photographs are left out of a general search so a street name still finds this week's events. A place with no `blocks/` folder loses nothing. Code: `src/blocks/geo.ts`.
+
 ## Run it
 
 You need Node 22 and git.
@@ -106,7 +116,7 @@ Without the app configured, the agent still answers; the "Yes, open the PR" butt
 Two open doors, so apps built for the place (in Relational Builder or anywhere) can build on the same commons:
 
 - `GET /place.json`: the place (label, center, catchment, time zone), every source with its license and freshness, the constituents and their advocates, the rules that travel with the data, and how a tool can give back.
-- `POST /mcp`: an open MCP server (JSON-RPC over HTTP, no auth, CORS open). Tools: `about_place`, `search`, `list`, `get`, `vital_signs`, `city_311`, `suggest_source`. Replies carry prose and `structuredContent` records.
+- `POST /mcp`: an open MCP server (JSON-RPC over HTTP, no auth, CORS open). Tools: `about_place`, `search`, `list`, `get`, `about_block`, `vital_signs`, `city_311`, `suggest_source`. Replies carry prose and `structuredContent` records.
 
 Nothing is in the pack that a neighbor couldn't already read on the site. `suggest_source` is the way back in: a tool offers its public feed, and it reaches the stewards like any other suggestion (5 an hour per caller). Reads are limited to 300 per 10 minutes per caller. The place lines (`center`, `catchment_miles`, `catchment_label`, `place_label`, `place_about`) live at the end of the data repo's `place.md`. Code: `src/place/pack.ts`.
 
@@ -127,7 +137,7 @@ Not a developer? [docs/REMIX.md](docs/REMIX.md) is the half-page version: start 
 
 The fork test in this repo (`fixtures/elsewhere/`, used by `npm test`) is a complete data repo for a fictional neighborhood. It runs against the same code with only `DATA_REPO` changed.
 
-1. Create a new data repo. Copy the structure of [outer-sunset](https://github.com/The-Relational-Technology-Project/outer-sunset) or of `fixtures/elsewhere/`: `place.md`, `STEWARDS.md`, `sources.yml`, `people.yml`, `places.yml`, `resources.yml`, `constituents/`, `events/`, `proposals/`, `corrections/`, `archive/`, `knowers/`, `knowledge/`, `log/questions.md`.
+1. Create a new data repo. Copy the structure of [outer-sunset](https://github.com/The-Relational-Technology-Project/outer-sunset) or of `fixtures/elsewhere/`: `place.md`, `STEWARDS.md`, `sources.yml`, `people.yml`, `places.yml`, `resources.yml`, `constituents/`, `events/`, `proposals/`, `corrections/`, `archive/`, `knowers/`, `knowledge/`, `log/questions.md`, and `blocks/` if the place wants notes pinned block by block.
 2. Write `place.md` in your own words. Name your constituents. List your sources; for each one, pick an adapter that fits (`supabase-rest`, `ics`, `llm-txt`, `neighborhood-api`) or add a new one in `src/adapters/` (one file, `fetch` and `normalize`, registered in `registry.ts`).
 3. Set `DATA_REPO` to your repo and run `npm run index`. Fix what's red.
 4. Install a GitHub App on your data repo and deploy.

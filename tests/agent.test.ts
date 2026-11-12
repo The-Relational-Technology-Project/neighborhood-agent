@@ -37,9 +37,9 @@ describe("system prompt", () => {
 
 describe("tools", () => {
   it("defines the read tools (strict) and draft_pr", () => {
-    expect(toolDefinitions.map((t) => t.name)).toEqual(["search_data", "get_vital_signs", "lookup_person_or_place", "city_311", "draft_pr", "ask_a_neighbor"]);
-    for (const t of toolDefinitions.slice(0, 4)) expect((t as { strict?: boolean }).strict).toBe(true);
-    expect((toolDefinitions[4] as { strict?: boolean }).strict).toBeUndefined();
+    expect(toolDefinitions.map((t) => t.name)).toEqual(["search_data", "get_vital_signs", "lookup_person_or_place", "about_block", "city_311", "draft_pr", "ask_a_neighbor"]);
+    for (const t of toolDefinitions.slice(0, 5)) expect((t as { strict?: boolean }).strict).toBe(true);
+    expect((toolDefinitions[5] as { strict?: boolean }).strict).toBeUndefined();
   });
 
   it("search_data returns records with source and fetch time", async () => {
