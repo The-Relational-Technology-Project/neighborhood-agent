@@ -10,6 +10,7 @@ import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
 import { config, type Config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
+import { Semantic, voyageEmbedder, type Embedder } from "./data/semantic.js";
 import { loadSources, type SourceStatus } from "./data/loader.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import type { DataRepo } from "./data/types.js";
@@ -36,6 +37,10 @@ export class AppState {
   mail: Mailer;
   agent?: Agent;
   classifier?: Anthropic;
+  /** Turns text into vectors for search by meaning. Unset when no embeddings key is configured. */
+  embedder?: Embedder;
+  /** Settles when the latest index has its vectors (or embedding failed and search stays on words). */
+  semanticReady: Promise<void> = Promise.resolve();
   private building?: Promise<void>;
 
   constructor(readonly cfg: Config = config) {
@@ -45,6 +50,19 @@ export class AppState {
     this.github = new GitHub(cfg);
     this.contacts = makeContactStore({ store: cfg.contactStore, resendKey: cfg.email.apiKey, cacheDir: cfg.cacheDir });
     this.mail = (msg) => sendEmail(cfg, msg);
+    if (cfg.embed?.apiKey) this.embedder = voyageEmbedder(cfg.embed);
+  }
+
+  /**
+   * Embed the new index's records in the background. Until that lands, the new index keeps the last
+   * build's vectors (most records don't change between builds), so search by meaning never blinks off.
+   */
+  private attachSemantic(index: SearchIndex, previous?: Semantic): void {
+    if (!this.embedder) return;
+    index.semantic = previous;
+    this.semanticReady = Semantic.build(index.all(), this.embedder, { cacheDir: this.cfg.cacheDir, model: this.cfg.embed?.model })
+      .then((s) => { index.semantic = s; })
+      .catch((err) => console.warn("[state] search by meaning is off for this build:", (err as Error).message));
   }
 
   async init(opts: { force?: boolean } = {}): Promise<void> {
@@ -71,6 +89,7 @@ export class AppState {
       this.repo = next;
       try { this.brand = new Set((await fs.readdir(path.join(root, "brand"))).filter((f) => /^[\w.-]+\.(webp|png|jpg|svg)$/.test(f))); } catch { this.brand = new Set(); }
       const { index, statuses } = await loadSources(this.repo, this.cfg.cacheDir, opts);
+      this.attachSemantic(index, this.index.semantic);
       this.index = index;
       this.statuses = statuses;
       this.lastBuild = new Date().toISOString();

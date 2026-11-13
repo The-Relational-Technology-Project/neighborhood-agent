@@ -44,6 +44,8 @@ export interface Config {
   contactStore?: string;
   /** Operate without a model (CLI index/search still works). */
   anthropicConfigured: boolean;
+  /** Search by meaning. On only when apiKey is set; without it search is full-text alone. */
+  embed: { apiKey?: string; url: string; model: string; dims: number };
 }
 
 /**
@@ -105,6 +107,12 @@ export function loadConfig(): Config {
     },
     contactStore: env("CONTACT_STORE"),
     anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
+    embed: {
+      apiKey: env("VOYAGE_API_KEY"),
+      url: env("EMBED_URL", "https://api.voyageai.com/v1/embeddings")!,
+      model: env("EMBED_MODEL", "voyage-4-lite")!,
+      dims: num("EMBED_DIMS", 512),
+    },
   };
 }
 

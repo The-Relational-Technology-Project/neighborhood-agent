@@ -9,6 +9,7 @@ import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
 import { config } from "./config.js";
 import { SearchIndex } from "./data/index.js";
+import { Semantic, voyageEmbedder } from "./data/semantic.js";
 import { loadSources } from "./data/loader.js";
 import { ensureRepo, loadRepo } from "./data/repo.js";
 import { GitHub } from "./github/app.js";
@@ -34,6 +35,10 @@ export class AppState {
     mail;
     agent;
     classifier;
+    /** Turns text into vectors for search by meaning. Unset when no embeddings key is configured. */
+    embedder;
+    /** Settles when the latest index has its vectors (or embedding failed and search stays on words). */
+    semanticReady = Promise.resolve();
     building;
     constructor(cfg = config) {
         this.cfg = cfg;
@@ -43,6 +48,20 @@ export class AppState {
         this.github = new GitHub(cfg);
         this.contacts = makeContactStore({ store: cfg.contactStore, resendKey: cfg.email.apiKey, cacheDir: cfg.cacheDir });
         this.mail = (msg) => sendEmail(cfg, msg);
+        if (cfg.embed?.apiKey)
+            this.embedder = voyageEmbedder(cfg.embed);
+    }
+    /**
+     * Embed the new index's records in the background. Until that lands, the new index keeps the last
+     * build's vectors (most records don't change between builds), so search by meaning never blinks off.
+     */
+    attachSemantic(index, previous) {
+        if (!this.embedder)
+            return;
+        index.semantic = previous;
+        this.semanticReady = Semantic.build(index.all(), this.embedder, { cacheDir: this.cfg.cacheDir, model: this.cfg.embed?.model })
+            .then((s) => { index.semantic = s; })
+            .catch((err) => console.warn("[state] search by meaning is off for this build:", err.message));
     }
     async init(opts = {}) {
         await this.budget.load();
@@ -73,6 +92,7 @@ export class AppState {
                 this.brand = new Set();
             }
             const { index, statuses } = await loadSources(this.repo, this.cfg.cacheDir, opts);
+            this.attachSemantic(index, this.index.semantic);
             this.index = index;
             this.statuses = statuses;
             this.lastBuild = new Date().toISOString();

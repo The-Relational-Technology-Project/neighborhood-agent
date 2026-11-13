@@ -1,12 +1,20 @@
 /**
- * The search index: MiniSearch over normalized records. No vector DB; the corpus is small and
- * full-text search plus the model's judgment is enough for a prototype.
+ * The search index: MiniSearch over normalized records. No vector DB; the corpus is small.
+ * When the deployment has an embeddings key, search by meaning (semantic.ts) is blended in:
+ * a record that matches by words and by meaning comes first, and a record that only shares a
+ * common word no longer crowds out the one that answers the question.
  */
 import MiniSearch from "minisearch";
+/** By meaning, keep records within this much of the closest one, and never below the floor. */
+const NEAR_BAND = 0.14;
+const NEAR_FLOOR = 0.3;
+const NEAR_MAX = 40;
 export class SearchIndex {
     mini;
     byId = new Map();
     builtAt;
+    /** Search by meaning, attached by the app state once the records are embedded. */
+    semantic;
     constructor(records, corrections = [], builtAt = new Date().toISOString()) {
         this.builtAt = builtAt;
         const merged = applyCorrections(records, corrections);
@@ -33,26 +41,52 @@ export class SearchIndex {
     get(id) {
         return this.byId.get(id);
     }
-    search(query, opts = {}) {
+    /** Search by words and, when it is on, by meaning. Falls back to words alone if embedding the query fails. */
+    async find(query, opts = {}) {
+        return this.search(query, opts, await this.semantic?.scores(query));
+    }
+    /**
+     * Full-text search. Pass `near` (how close each record is to the query by meaning, from
+     * Semantic.scores) to blend the two rankings; `find` does that for you.
+     */
+    search(query, opts = {}, near) {
         const today = localDate();
         const limit = opts.limit ?? 12;
-        // How well each record matched, so the nudge below can't bury a good match under a weak one.
-        const rel = new Map();
-        let hits = this.mini.search(query).map((h) => { rel.set(String(h.id), h.score); return this.byId.get(String(h.id)); }).filter(Boolean);
-        if (opts.kinds?.length)
-            hits = hits.filter((r) => opts.kinds.includes(r.kind));
+        const passes = (r) => 
         // Old photographs are many and their captions are street names; keep them out of a general
         // search so "Judah" still finds this week's events. Asking for kind "block-note" includes them.
-        else
-            hits = hits.filter((r) => !(r.kind === "block-note" && r.extra?.kind === "photo"));
-        if (opts.upcoming)
-            hits = hits.filter((r) => !r.date || r.date >= today);
-        if (opts.on)
-            hits = hits.filter((r) => r.date === opts.on);
+        (opts.kinds?.length ? opts.kinds.includes(r.kind) : !(r.kind === "block-note" && r.extra?.kind === "photo")) &&
+            (!opts.upcoming || !r.date || r.date >= today) &&
+            (!opts.on || r.date === opts.on);
+        // How well each record matched, so the nudge below can't bury a good match under a weak one.
+        const rel = new Map();
+        const hits = this.mini.search(query).map((h) => { rel.set(String(h.id), h.score); return this.byId.get(String(h.id)); }).filter((r) => r && passes(r));
         // Nudge corrected and repo records up: they are the neighborhood's own words. A nudge, not a
         // trump card: a record that matches much better still comes first, whatever its source.
         hits.sort((a, b) => (rel.get(b.id) ?? 0) * nudge(b) - (rel.get(a.id) ?? 0) * nudge(a));
-        return hits.slice(0, limit);
+        if (!near?.size)
+            return hits.slice(0, limit);
+        // By meaning: the records closest to the query, among those that pass the same filters.
+        const close = this.all().filter(passes).map((r) => ({ r, sim: near.get(r.id) ?? -1 })).sort((a, b) => b.sim - a.sim);
+        const cut = Math.max(NEAR_FLOOR, (close[0]?.sim ?? 0) - NEAR_BAND);
+        const byMeaning = close.filter((x) => x.sim >= cut).slice(0, NEAR_MAX);
+        // Blend the two: each record scores by how close it is in meaning (within the band) and by how
+        // well its words matched, meaning counting a little more. A name typed exactly still wins,
+        // because nothing is close in meaning to a bare name and the word match stands alone.
+        const top = byMeaning[0]?.sim ?? 0;
+        const meaning = new Map(byMeaning.map((x) => [x.r.id, top > cut ? 0.5 + 0.5 * (x.sim - cut) / (top - cut) : 1]));
+        const best = Math.max(0, ...hits.map((r) => rel.get(r.id) ?? 0)) || 1;
+        const score = (r) => (0.6 * (meaning.get(r.id) ?? 0) + 0.4 * ((rel.get(r.id) ?? 0) / best)) * nudge(r);
+        // "Close" keeps what is near in meaning, plus anything whose title carries one of the words asked for.
+        const words = query.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? [];
+        const named = (r) => words.some((w) => r.title.toLowerCase().includes(w));
+        const pool = new Map();
+        for (const r of hits)
+            if (!opts.close || named(r))
+                pool.set(r.id, r);
+        for (const x of byMeaning)
+            pool.set(x.r.id, x.r);
+        return [...pool.values()].sort((a, b) => score(b) - score(a)).slice(0, limit);
     }
     byKind(kind, opts = {}) {
         const today = localDate();

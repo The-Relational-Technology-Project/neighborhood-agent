@@ -11,7 +11,7 @@ import { verifyWebhook } from "./github/app.js";
 import { emailConfigured, emailStewards, stewardAddresses } from "./notify/email.js";
 import { isoWeek } from "./agent/questionlog.js";
 import { getVitalSigns } from "./vitals/index.js";
-import { blockJson, handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
+import { blockExamples, blockJson, handleRpc, recordsJson, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
 import { aboutBlock, resolveWhere } from "./blocks/geo.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
@@ -105,17 +105,26 @@ export function createApp(state) {
     for (const p of ["/place.json", "/mcp", "/block.json"])
         app.options(p, (c) => c.body(null, 204, CORS));
     app.get("/place.json", async (c) => c.json(await placePack(state, siteBase(c)), 200, { ...CORS, "cache-control": "public, max-age=300" }));
+    // The place's public records as plain JSON, for apps built for the place: a calendar, a directory, a search box.
+    app.get("/records.json", async (c) => {
+        if (!packReads.allow(clientIp(c)))
+            return c.json({ error: "Too many requests. Try again in a few minutes." }, 429, CORS);
+        const out = await recordsJson(state, { q: c.req.query("q"), kind: c.req.query("kind") ?? c.req.query("kinds"), upcoming: c.req.query("upcoming"), on: c.req.query("on"), limit: c.req.query("limit") });
+        return "error" in out ? c.json(out, 400, CORS) : c.json(out, 200, { ...CORS, "cache-control": "public, max-age=300" });
+    });
     // One block, as data: what the notes hold about it and what is pinned nearby. For maps and other tools.
     app.get("/block.json", (c) => {
         if (!packReads.allow(clientIp(c)))
             return c.json({ error: "Too many requests. Try again in a few minutes." }, 429, CORS);
         const where = (c.req.query("where") ?? c.req.query("id") ?? "").slice(0, 200);
-        if (!where)
-            return c.json({ error: "Give ?where= a block id, 'lat,lng', a block ('46th Ave between Moraga and Noriega') or a corner ('46th and Judah').", blocks: state.repo.blocks.length }, 400, CORS);
+        if (!where) {
+            const ex = blockExamples(state);
+            return c.json({ error: `Give ?where= a block id, 'lat,lng', a block ('${ex.block}') or a corner ('${ex.corner}').`, blocks: state.repo.blocks.length }, 400, CORS);
+        }
         const about = blockJson(aboutBlock(state.repo, where), state.repo.blocksSources);
         return c.json(about, about.found ? 200 : 404, { ...CORS, "cache-control": "public, max-age=300" });
     });
-    app.get("/mcp", (c) => c.json({ name: "knowy-place-pack", version: PACK_VERSION, transport: "POST JSON-RPC 2.0 here (initialize, tools/list, tools/call). No auth.", tools: mcpTools.map((t) => t.name), about: `${siteBase(c)}/place.json` }, 200, CORS));
+    app.get("/mcp", (c) => c.json({ name: "knowy-place-pack", version: PACK_VERSION, transport: "POST JSON-RPC 2.0 here (initialize, tools/list, tools/call). No auth.", tools: mcpTools(state).map((t) => t.name), about: `${siteBase(c)}/place.json` }, 200, CORS));
     app.post("/mcp", async (c) => {
         if (!packReads.allow(clientIp(c)))
             return c.json({ jsonrpc: "2.0", id: null, error: { code: -32000, message: "Too many requests. Try again in a few minutes." } }, 429, CORS);

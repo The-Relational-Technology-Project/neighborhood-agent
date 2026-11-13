@@ -78,6 +78,12 @@ export function loadConfig() {
         },
         contactStore: env("CONTACT_STORE"),
         anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
+        embed: {
+            apiKey: env("VOYAGE_API_KEY"),
+            url: env("EMBED_URL", "https://api.voyageai.com/v1/embeddings"),
+            model: env("EMBED_MODEL", "voyage-4-lite"),
+            dims: num("EMBED_DIMS", 512),
+        },
     };
 }
 export const config = loadConfig();
