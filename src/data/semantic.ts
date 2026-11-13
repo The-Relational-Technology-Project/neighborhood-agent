@@ -59,6 +59,7 @@ function unit(v: number[]): Float32Array {
 }
 
 const BATCH = 96;
+const PARALLEL = 4;
 
 export class Semantic {
   private queries = new Map<string, Float32Array>();
@@ -79,10 +80,14 @@ export class Semantic {
       wanted.set(r.id, hash);
       if (!cached[hash] && !todo.some((t) => t.hash === hash)) todo.push({ hash, text });
     }
-    for (let i = 0; i < todo.length; i += BATCH) {
-      const part = todo.slice(i, i + BATCH);
-      const out = await embed(part.map((t) => t.text), "document");
-      part.forEach((t, j) => { cached[t.hash] = Buffer.from(unit(out[j]).buffer).toString("base64"); });
+    // A few batches at a time: a first build of a thousand records lands in a couple of seconds.
+    const batches: { hash: string; text: string }[][] = [];
+    for (let i = 0; i < todo.length; i += BATCH) batches.push(todo.slice(i, i + BATCH));
+    for (let i = 0; i < batches.length; i += PARALLEL) {
+      await Promise.all(batches.slice(i, i + PARALLEL).map(async (part) => {
+        const out = await embed(part.map((t) => t.text), "document");
+        part.forEach((t, j) => { cached[t.hash] = Buffer.from(unit(out[j]).buffer).toString("base64"); });
+      }));
     }
     const vecs = new Map<string, Float32Array>();
     const kept: Record<string, string> = {};
