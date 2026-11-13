@@ -163,6 +163,7 @@ export async function placePack(state: AppState, base: string) {
     place: info,
     steward: { name: info.agent, site: base, sources_page: `${base}/sources`, data_repo: state.github.repoUrl, data_commit: state.repo.sha ?? null },
     license: { repo: "CC BY 4.0", attribution: `${info.name} neighbors via ${info.agent} (${host})`, other_sources: "Each source keeps its own terms; see sources[].license." },
+    search: { by_words: true, by_meaning: Boolean(state.index.semantic?.size), ...(state.embedder ? { vectors: state.index.semantic?.size ?? 0 } : {}), ...(state.semanticError ? { by_meaning_off_because: state.semanticError } : {}) },
     endpoints: liveEndpoints(state, base),
     mcp: { url: `${base}/mcp`, transport: "JSON-RPC 2.0 over HTTP POST, no auth, CORS open", tools: mcpTools(state).map((t) => t.name) },
     records: { total: Object.values(counts).reduce((a, b) => a + b, 0), by_kind: counts, built_at: state.index.builtAt },

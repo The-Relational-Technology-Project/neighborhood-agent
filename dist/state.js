@@ -15,6 +15,8 @@ import { ensureRepo, loadRepo } from "./data/repo.js";
 import { GitHub } from "./github/app.js";
 import { makeContactStore } from "./knowers/store.js";
 import { sendEmail } from "./notify/email.js";
+/** How long a build waits for the records to be embedded before going on without them. */
+const SEMANTIC_WAIT_MS = 12_000;
 export class AppState {
     cfg;
     repo;
@@ -39,6 +41,8 @@ export class AppState {
     embedder;
     /** Settles when the latest index has its vectors (or embedding failed and search stays on words). */
     semanticReady = Promise.resolve();
+    /** Why search by meaning is off for the latest build, when it is (shown in /place.json, so a steward can see it). */
+    semanticError;
     building;
     constructor(cfg = config) {
         this.cfg = cfg;
@@ -60,8 +64,11 @@ export class AppState {
             return;
         index.semantic = previous;
         this.semanticReady = Semantic.build(index.all(), this.embedder, { cacheDir: this.cfg.cacheDir, model: this.cfg.embed?.model })
-            .then((s) => { index.semantic = s; })
-            .catch((err) => console.warn("[state] search by meaning is off for this build:", err.message));
+            .then((s) => { index.semantic = s; this.semanticError = undefined; })
+            .catch((err) => {
+            this.semanticError = err.message.slice(0, 160);
+            console.warn("[state] search by meaning is off for this build:", this.semanticError);
+        });
     }
     async init(opts = {}) {
         await this.budget.load();
@@ -95,6 +102,10 @@ export class AppState {
             this.attachSemantic(index, this.index.semantic);
             this.index = index;
             this.statuses = statuses;
+            // Wait for the vectors, up to a few seconds. On a serverless host, work left running after
+            // the response may never finish, so the build is where embedding has to happen. Past the
+            // cap it carries on in the background and search stays on words until it lands.
+            await Promise.race([this.semanticReady, new Promise((r) => setTimeout(r, SEMANTIC_WAIT_MS).unref?.())]);
             this.lastBuild = new Date().toISOString();
         })().finally(() => { this.building = undefined; });
         return this.building;
