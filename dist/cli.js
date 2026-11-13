@@ -29,7 +29,8 @@ async function main() {
         }
         case "search": {
             await state.init();
-            for (const r of state.index.search(arg, { limit: 10 }))
+            await state.semanticReady;
+            for (const r of await state.index.find(arg, { limit: 10 }))
                 console.log(formatRecord(r) + "\n");
             return;
         }

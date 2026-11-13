@@ -12,7 +12,7 @@ import { emailConfigured, emailStewards, stewardAddresses, type Attachment } fro
 import { isoWeek } from "./agent/questionlog.js";
 import type { AppState } from "./state.js";
 import { getVitalSigns } from "./vitals/index.js";
-import { blockExamples, blockJson, handleRpc, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
+import { blockExamples, blockJson, handleRpc, recordsJson, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
 import { aboutBlock, resolveWhere } from "./blocks/geo.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
@@ -98,6 +98,12 @@ const packWrites = new RateLimiter(5, 60 * 60 * 1000);
 const siteBase = (c: Context) => (state.cfg.siteUrl ?? new URL(c.req.url).origin).replace(/\/$/, "");
 for (const p of ["/place.json", "/mcp", "/block.json"]) app.options(p, (c) => c.body(null, 204, CORS));
 app.get("/place.json", async (c) => c.json(await placePack(state, siteBase(c)), 200, { ...CORS, "cache-control": "public, max-age=300" }));
+// The place's public records as plain JSON, for apps built for the place: a calendar, a directory, a search box.
+app.get("/records.json", async (c) => {
+  if (!packReads.allow(clientIp(c))) return c.json({ error: "Too many requests. Try again in a few minutes." }, 429, CORS);
+  const out = await recordsJson(state, { q: c.req.query("q"), kind: c.req.query("kind") ?? c.req.query("kinds"), upcoming: c.req.query("upcoming"), on: c.req.query("on"), limit: c.req.query("limit") });
+  return "error" in out ? c.json(out, 400, CORS) : c.json(out, 200, { ...CORS, "cache-control": "public, max-age=300" });
+});
 // One block, as data: what the notes hold about it and what is pinned nearby. For maps and other tools.
 app.get("/block.json", (c) => {
   if (!packReads.allow(clientIp(c))) return c.json({ error: "Too many requests. Try again in a few minutes." }, 429, CORS);

@@ -22,7 +22,7 @@ describe("the place pack over MCP", () => {
     expect(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, deps)).toBeUndefined();
     const list = await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, deps);
     const names = (list?.result as { tools: { name: string }[] }).tools.map((t) => t.name);
-    expect(names).toEqual(["about_place", "design_brief", "search", "list", "get", "about_block", "vital_signs", "city_311", "suggest_source"]);
+    expect(names).toEqual(["about_place", "design_brief", "live_endpoints", "search", "list", "get", "about_block", "vital_signs", "city_311", "suggest_source"]);
     const bad = await handleRpc({ jsonrpc: "2.0", id: 3, method: "nope" }, deps);
     expect((bad?.error as { code: number }).code).toBe(-32601);
   });
@@ -89,6 +89,29 @@ describe("the place pack over MCP", () => {
     expect(result.content[0].text).not.toMatch(/daily_note/);
     const lost = await call({ idea: "a sauna", where: "Nowhere Blvd and 99th" });
     expect((lost?.result as { content: { text: string }[] }).content[0].text).toMatch(/could not place/);
+  });
+
+  it("connects a brief to live data, and serves records as plain JSON", async () => {
+    const { handleRpc, recordsJson, placePack } = await import("../src/place/pack.js");
+    const { state, deps } = await setup();
+    const call = async (name: string, args: Record<string, unknown>) => ((await handleRpc({ jsonrpc: "2.0", id: 8, method: "tools/call", params: { name, arguments: args } }, deps))?.result) as { content: { text: string }[]; structuredContent: Record<string, unknown> };
+    const brief = await call("design_brief", { idea: "an app to borrow a ladder or a drill from neighbors" });
+    const live = brief.structuredContent.live_data as { kind: string; url: string; sources: { name: string }[] }[];
+    expect(live[0].kind).toBe("resource");
+    expect(live[0].url).toMatch(/^https:\/\/example\.org\/records\.json\?kind=resource&q=/);
+    expect(live[0].sources[0].name).toBeTruthy();
+    const ends = await call("live_endpoints", { need: "tool library" });
+    expect((ends.structuredContent.endpoints as { name: string }[]).map((e) => e.name)).toEqual(["records", "block", "place", "mcp"]);
+    expect(ends.content[0].text).toContain("https://example.org/records.json?kind=resource");
+    expect((await placePack(state, "https://example.org")).endpoints[0].url).toBe("https://example.org/records.json");
+
+    const found = await recordsJson(state, { q: "ladder" });
+    expect("records" in found && found.records.map((r) => r.title)).toContain("Elsewhere Tool Library");
+    const listed = await recordsJson(state, { kind: "resource" });
+    expect("records" in listed && listed.records.every((r) => r.kind === "resource")).toBe(true);
+    expect(await recordsJson(state, { kind: "correction" })).toHaveProperty("error");
+    expect(await recordsJson(state, {})).toHaveProperty("error");
+    expect(await recordsJson(state, { kind: "event", on: "tomorrow" })).toHaveProperty("error");
   });
 
   it("sends a suggested feed to the stewards, checks it, and limits it", async () => {

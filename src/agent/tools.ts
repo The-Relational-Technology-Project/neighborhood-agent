@@ -153,7 +153,7 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
     case "search_data": {
       const limit = Math.min(25, Math.max(1, Number(args.limit ?? 10)));
       const kinds = Array.isArray(args.kinds) ? (args.kinds as RecordKind[]) : undefined;
-      const hits = ctx.index.search(String(args.query ?? ""), { kinds, upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
+      const hits = await ctx.index.find(String(args.query ?? ""), { kinds, upcoming: Boolean(args.upcoming), on: args.on ? String(args.on) : undefined, limit });
       if (!hits.length) return "No records matched. Try other words, or say you don't know and point to a person or resource.";
       return hits.map(formatRecord).join("\n\n");
     }
@@ -164,7 +164,7 @@ export async function runTool(name: string, input: unknown, ctx: ToolContext): P
     }
     case "lookup_person_or_place": {
       const q = String(args.name ?? "");
-      const hits = ctx.index.search(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
+      const hits = await ctx.index.find(q, { kinds: ["person", "place", "resource", "constituent", "group", "recommendation"], limit: 8 });
       if (!hits.length) return `Nothing in the repo matches "${q}". Say you don't know; do not invent hours or contacts.`;
       return hits.map(formatRecord).join("\n\n");
     }
