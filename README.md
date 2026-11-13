@@ -118,7 +118,9 @@ Without the app configured, the agent still answers; the "Yes, open the PR" butt
 Two open doors, so apps built for the place (in Relational Builder or anywhere) can build on the same commons:
 
 - `GET /place.json`: the place (label, center, catchment, time zone), every source with its license and freshness, the constituents and their advocates, the rules that travel with the data, and how a tool can give back.
-- `POST /mcp`: an open MCP server (JSON-RPC over HTTP, no auth, CORS open). Tools: `about_place`, `search`, `list`, `get`, `about_block`, `vital_signs`, `city_311`, `suggest_source`. Replies carry prose and `structuredContent` records.
+- `POST /mcp`: an open MCP server (JSON-RPC over HTTP, no auth, CORS open). Tools: `about_place`, `design_brief`, `search`, `list`, `get`, `about_block`, `vital_signs`, `city_311`, `suggest_source`. Replies carry prose and `structuredContent` records.
+- `design_brief` is the one to call before building: give it the idea in a sentence (and a block or corner), and it returns what already exists here that does something similar, what neighbors have already asked for, who to talk to first, what the notes hold about that block, the more-than-human neighbors a plan might touch, how the place sounds, and the rules that travel with the data. It is a starting point for a conversation with neighbors, not a replacement for one.
+- The pack speaks in the place's own names. The agent's name, the credit line, and the examples in the tool descriptions come from the data repo (`place.md`, `constituents/`, `blocks/grid.yml`), so a fork never asks builders to credit another place.
 
 Nothing is in the pack that a neighbor couldn't already read on the site. `suggest_source` is the way back in: a tool offers its public feed, and it reaches the stewards like any other suggestion (5 an hour per caller). Reads are limited to 300 per 10 minutes per caller. The place lines (`center`, `catchment_miles`, `catchment_label`, `place_label`, `place_about`) live at the end of the data repo's `place.md`. Code: `src/place/pack.ts`.
 

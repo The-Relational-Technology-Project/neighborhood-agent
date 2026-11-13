@@ -22,7 +22,7 @@ describe("the place pack over MCP", () => {
     expect(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, deps)).toBeUndefined();
     const list = await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, deps);
     const names = (list?.result as { tools: { name: string }[] }).tools.map((t) => t.name);
-    expect(names).toEqual(["about_place", "search", "list", "get", "about_block", "vital_signs", "city_311", "suggest_source"]);
+    expect(names).toEqual(["about_place", "design_brief", "search", "list", "get", "about_block", "vital_signs", "city_311", "suggest_source"]);
     const bad = await handleRpc({ jsonrpc: "2.0", id: 3, method: "nope" }, deps);
     expect((bad?.error as { code: number }).code).toBe(-32601);
   });
@@ -41,16 +41,54 @@ describe("the place pack over MCP", () => {
   });
 
   it("describes the place with its rules and how to give back", async () => {
-    const { placePack, RULES } = await import("../src/place/pack.js");
+    const { placePack, rulesFor } = await import("../src/place/pack.js");
     const { state } = await setup();
     const pack = await placePack(state, "https://example.org");
     expect(pack.mcp.url).toBe("https://example.org/mcp");
     expect(pack.version).toBe(1);
     expect(pack.label).toBeTruthy();
-    expect(pack.rules).toEqual(RULES);
+    expect(pack.rules).toEqual(rulesFor(state, "https://example.org"));
+    // A fork speaks in its own names: nothing of the first place leaks into another's pack.
+    expect(pack.name).toBe("the Elsewhere Agent");
+    expect(pack.rules[0]).toContain("via the Elsewhere Agent, Elsewhere neighbors");
+    expect(pack.rules[0]).toContain("https://example.org/sources");
+    expect(pack.rules.join(" ")).toContain("The river");
+    expect(JSON.stringify(pack)).not.toMatch(/Outer Sunset|Plover\b|knowy\.org/);
     expect(pack.sources.every((s) => s.status !== "excluded")).toBe(true);
     expect(pack.contribute.feed_formats.map((f) => f.name)).toContain("Calendar (iCalendar)");
     expect(JSON.stringify(pack)).not.toMatch(/question/i);
+  });
+
+  it("keeps the first place's names out of another place's tools", async () => {
+    const { handleRpc } = await import("../src/place/pack.js");
+    const { deps } = await setup();
+    const list = await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, deps);
+    const init = await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize" }, deps);
+    const said = JSON.stringify([list, init]);
+    expect(said).not.toMatch(/Outer Sunset|Knowy Plover|46th|Judah|knowy\.org/);
+    expect(said).toContain("Main St and 1st Ave");
+    expect(said).toContain("the Elsewhere Agent");
+  });
+
+  it("gives a design brief: what's here, who to talk to, the block, the rules", async () => {
+    const { handleRpc } = await import("../src/place/pack.js");
+    const { deps } = await setup();
+    const call = (args: Record<string, unknown>) => handleRpc({ jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "design_brief", arguments: args } }, deps);
+    const empty = await call({ idea: " " });
+    expect((empty?.result as { isError?: boolean }).isError).toBe(true);
+    const res = await call({ idea: "an app to borrow a ladder or a drill from neighbors", where: "Main St and 1st Ave" });
+    const result = res?.result as { content: { text: string }[]; structuredContent: { already_here: { title: string }[]; talk_to: { stewards: string }; block?: { found: boolean }; constituents: { name: string }[]; place_notes: { heading: string }[]; rules: string[] } };
+    const brief = result.structuredContent;
+    expect(brief.already_here.map((r) => r.title)).toContain("Elsewhere Tool Library");
+    expect(brief.talk_to.stewards).toBe("https://example.org/contact");
+    expect(brief.block?.found).toBe(true);
+    expect(brief.constituents.map((c) => c.name)).toContain("The river");
+    expect(brief.place_notes.map((n) => n.heading)).toContain("Voice");
+    expect(brief.rules[0]).toContain("the Elsewhere Agent");
+    expect(result.content[0].text).toMatch(/Talk to one of the people or groups below before you build/);
+    expect(result.content[0].text).not.toMatch(/daily_note/);
+    const lost = await call({ idea: "a sauna", where: "Nowhere Blvd and 99th" });
+    expect((lost?.result as { content: { text: string }[] }).content[0].text).toMatch(/could not place/);
   });
 
   it("sends a suggested feed to the stewards, checks it, and limits it", async () => {
