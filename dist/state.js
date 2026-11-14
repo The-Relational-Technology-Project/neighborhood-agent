@@ -15,6 +15,7 @@ import { ensureRepo, loadRepo } from "./data/repo.js";
 import { GitHub } from "./github/app.js";
 import { makeContactStore } from "./knowers/store.js";
 import { sendEmail } from "./notify/email.js";
+import { waitUntil } from "@vercel/functions";
 /** How long a build waits for the records to be embedded before going on without them. */
 const SEMANTIC_WAIT_MS = 12_000;
 export class AppState {
@@ -121,7 +122,10 @@ export class AppState {
     refreshIfStale() {
         const every = Math.max(1, this.cfg.repoPollMinutes) * 60_000;
         if (this.lastBuild && Date.now() - Date.parse(this.lastBuild) > every) {
-            this.rebuild().catch((err) => console.warn("[state] rebuild failed:", err.message));
+            // Tell a serverless host to keep the function alive until the rebuild lands. Without this the
+            // work is frozen when the response is sent, and a merge to the data repo can sit unread for
+            // as long as the instance lives. Outside such a host this is a no-op.
+            waitUntil(this.rebuild().catch((err) => console.warn("[state] rebuild failed:", err.message)));
         }
     }
     /** Poll the data repo; rebuild when main moves. Also refreshes expired source caches. */

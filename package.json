@@ -25,6 +25,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "1.6.0",
     "@hono/node-server": "^1.14.0",
+    "@vercel/functions": "^2.2.13",
     "hono": "^4.7.0",
     "minisearch": "^7.1.0",
     "yaml": "^2.7.0"
