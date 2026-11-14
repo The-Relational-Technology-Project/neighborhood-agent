@@ -78,6 +78,9 @@ export function loadConfig() {
         },
         contactStore: env("CONTACT_STORE"),
         anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
+        modelBaseUrl: env("MODEL_BASE_URL"),
+        modelApiKey: env("MODEL_API_KEY"),
+        lookFirst: env("MODEL_LOOK_FIRST") === "1" || env("MODEL_LOOK_FIRST") === "true",
         embed: {
             apiKey: env("VOYAGE_API_KEY"),
             url: env("EMBED_URL", "https://api.voyageai.com/v1/embeddings"),

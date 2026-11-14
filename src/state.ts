@@ -6,6 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Anthropic } from "@anthropic-ai/sdk/client";
 import { Agent } from "./agent/agent.js";
+import { OpenAgent } from "./agent/open-agent.js";
 import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
 import { config, type Config } from "./config.js";
@@ -39,7 +40,7 @@ export class AppState {
   contacts: ContactStore;
   /** Sends one email. Swappable, so tests can read the mail instead of sending it. */
   mail: Mailer;
-  agent?: Agent;
+  agent?: Agent | OpenAgent;
   classifier?: Anthropic;
   /** Turns text into vectors for search by meaning. Unset when no embeddings key is configured. */
   embedder?: Embedder;
@@ -77,9 +78,13 @@ export class AppState {
   async init(opts: { force?: boolean } = {}): Promise<void> {
     await this.budget.load();
     await this.log.load();
-    if (this.cfg.anthropicConfigured) {
-      this.agent = new Agent(this.cfg, this.budget);
-      this.classifier = this.agent.client;
+    if (this.cfg.modelBaseUrl) {
+      // An open model behind an OpenAI-compatible endpoint. The question log classifies by words.
+      this.agent = new OpenAgent(this.cfg, this.budget);
+    } else if (this.cfg.anthropicConfigured) {
+      const agent = new Agent(this.cfg, this.budget);
+      this.agent = agent;
+      this.classifier = agent.client;
     }
     await this.rebuild(opts);
   }

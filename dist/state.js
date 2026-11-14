@@ -5,6 +5,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Agent } from "./agent/agent.js";
+import { OpenAgent } from "./agent/open-agent.js";
 import { Budget, RateLimiter } from "./agent/budget.js";
 import { QuestionLog } from "./agent/questionlog.js";
 import { config } from "./config.js";
@@ -74,9 +75,14 @@ export class AppState {
     async init(opts = {}) {
         await this.budget.load();
         await this.log.load();
-        if (this.cfg.anthropicConfigured) {
-            this.agent = new Agent(this.cfg, this.budget);
-            this.classifier = this.agent.client;
+        if (this.cfg.modelBaseUrl) {
+            // An open model behind an OpenAI-compatible endpoint. The question log classifies by words.
+            this.agent = new OpenAgent(this.cfg, this.budget);
+        }
+        else if (this.cfg.anthropicConfigured) {
+            const agent = new Agent(this.cfg, this.budget);
+            this.agent = agent;
+            this.classifier = agent.client;
         }
         await this.rebuild(opts);
     }

@@ -41,6 +41,7 @@ This repo is the code. The neighborhood's data lives in a separate repo that the
 - **One write path.** The model calls `draft_pr`, which only returns file content. The app shows it to the neighbor with a "Yes, open the PR" button. Only that tap calls GitHub. The PR carries a label (`event`, `correction`, `proposal`) and a body with the neighbor's ask in their words, what changed, and why.
 - **Vital signs** (`src/vitals/`) are read live from public feeds named in `sources.yml` with `vital_sign: true`: NOAA tides, Open-Meteo marine and air, iNaturalist, NPS alerts, and a plover season computed from the constituent file.
 - **Prompt assembly.** The system prompt is `place.md` + `STEWARDS.md` + `constituents/` + people and resources + a fixed behavior block (`src/agent/prompt.ts`). Stable parts are cached; the date comes after.
+- **Any model.** The agent runs on Claude, or on any model behind an OpenAI-compatible endpoint: set `MODEL_BASE_URL` and `MODEL` (`src/agent/open-agent.ts`). Same tools, same prompt, same budget. `npm run golden -- golden.yml golden-block.yml --json <file>` scores a model on the acceptance questions, and [docs/golden-results.md](docs/golden-results.md) is the record of how open models do.
 - **Limits.** A per-IP rate limit, a daily dollar budget with a hard stop ("I'm resting, try again tomorrow"), fetched content treated as data with an injection scanner that logs attempts, and a refusal rule for anything about a private individual.
 
 ## Asking a neighbor, and the commons

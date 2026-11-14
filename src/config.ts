@@ -44,6 +44,13 @@ export interface Config {
   contactStore?: string;
   /** Operate without a model (CLI index/search still works). */
   anthropicConfigured: boolean;
+  /** An OpenAI-compatible endpoint to use instead (a model in the room, a hosted open model, a router).
+   *  When set, MODEL names a model there and the Anthropic key is not needed. */
+  modelBaseUrl?: string;
+  modelApiKey?: string;
+  /** Make the model call a tool before its first words (MODEL_LOOK_FIRST=1). Small models often answer
+   *  "I don't have that" without looking; this makes looking the first move. Open-model loop only. */
+  lookFirst?: boolean;
   /** Search by meaning. On only when apiKey is set; without it search is full-text alone. */
   embed: { apiKey?: string; url: string; model: string; dims: number };
 }
@@ -107,6 +114,9 @@ export function loadConfig(): Config {
     },
     contactStore: env("CONTACT_STORE"),
     anthropicConfigured: Boolean(env("ANTHROPIC_API_KEY") || env("ANTHROPIC_AUTH_TOKEN")),
+    modelBaseUrl: env("MODEL_BASE_URL"),
+    modelApiKey: env("MODEL_API_KEY"),
+    lookFirst: env("MODEL_LOOK_FIRST") === "1" || env("MODEL_LOOK_FIRST") === "true",
     embed: {
       apiKey: env("VOYAGE_API_KEY"),
       url: env("EMBED_URL", "https://api.voyageai.com/v1/embeddings")!,

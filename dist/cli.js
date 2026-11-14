@@ -9,6 +9,7 @@
  *   nagent golden [file]    run the golden questions (needs a model)
  *   nagent log-pr           open a PR adding new question-log rows to log/questions.md
  */
+import { goldenReport, runGolden } from "./agent/golden.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
@@ -57,39 +58,37 @@ async function main() {
             return;
         }
         case "golden": {
+            // nagent golden [file ...] [--json out.json]: run the acceptance questions against the configured
+            // model and score each one. With --json the run is written out for the report.
             await state.init();
             if (!state.agent)
-                throw new Error("ANTHROPIC_API_KEY is not set.");
-            const file = arg || path.resolve(process.cwd(), "golden.yml");
-            const spec = YAML.parse(await fs.readFile(file, "utf8"));
-            let pass = 0;
-            for (const q of spec.questions) {
-                const r = await state.agent.respond([{ role: "user", content: q.ask }], { repo: state.repo, index: state.index, log: state.log });
-                const text = r.text.toLowerCase();
-                const problems = [];
-                for (const m of q.must ?? [])
-                    if (!text.includes(m.toLowerCase()))
-                        problems.push(`missing "${m}"`);
-                for (const m of q.must_not ?? [])
-                    if (text.includes(m.toLowerCase()))
-                        problems.push(`contains "${m}"`);
-                for (const t of q.tools ?? [])
-                    if (!r.tools_used.includes(t))
-                        problems.push(`did not call ${t}`);
-                for (const t of q.no_tools ?? [])
-                    if (r.tools_used.includes(t))
-                        problems.push(`called ${t}`);
-                const cites = /https?:\/\//.test(r.text) || /\(([^)]*\.(org|com|gov|us|today)[^)]*)\)/i.test(r.text);
-                if (q.expect.includes("cite") && !cites)
-                    problems.push("no source link");
-                const ok = problems.length === 0;
-                if (ok)
-                    pass++;
-                console.log(`${ok ? "PASS" : "FAIL"}  ${q.ask}\n      expect: ${q.expect}\n      tools: ${r.tools_used.join(", ") || "none"}${problems.length ? `\n      problems: ${problems.join("; ")}` : ""}\n      answer: ${r.text.replace(/\s+/g, " ").slice(0, 300)}\n`);
+                throw new Error("No model is configured. Set ANTHROPIC_API_KEY, or MODEL_BASE_URL and MODEL for an open model.");
+            await state.semanticReady;
+            const rest = process.argv.slice(3);
+            const jsonAt = rest.indexOf("--json");
+            const outFile = jsonAt >= 0 ? rest[jsonAt + 1] : undefined;
+            const files = rest.filter((a, i) => !a.startsWith("--") && (jsonAt < 0 || i !== jsonAt + 1));
+            if (!files.length)
+                files.push(path.resolve(process.cwd(), "golden.yml"));
+            const run = await runGolden(state, files);
+            for (const r of run.results) {
+                console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.ask}\n      expect: ${r.expect}\n      tools: ${r.tools_used.join(", ") || "none"}  (${(r.ms / 1000).toFixed(1)}s, ${r.input_tokens} in, ${r.output_tokens} out)${r.problems.length ? `\n      problems: ${r.problems.join("; ")}` : ""}\n      answer: ${r.answer.replace(/\s+/g, " ").slice(0, 400)}\n`);
             }
-            console.log(`${pass}/${spec.questions.length} passed. Today $${state.budget.spent.toFixed(4)} of $${state.budget.limit}.`);
-            if (pass < spec.questions.length)
+            console.log(`${run.passed}/${run.results.length} passed on ${run.model}. Median ${(run.median_ms / 1000).toFixed(1)}s. ${run.input_tokens} in, ${run.output_tokens} out.`);
+            if (outFile) {
+                await fs.mkdir(path.dirname(path.resolve(outFile)), { recursive: true });
+                await fs.writeFile(outFile, JSON.stringify(run, null, 2));
+                console.log(`Wrote ${outFile}`);
+            }
+            if (run.passed < run.results.length)
                 process.exitCode = 1;
+            return;
+        }
+        case "golden-report": {
+            // nagent golden-report <dir>: one table from every run in a folder, as markdown on stdout.
+            const dir = arg || path.resolve(process.cwd(), "bench/results");
+            const runs = (await Promise.all((await fs.readdir(dir)).filter((f) => f.endsWith(".json")).sort().map(async (f) => JSON.parse(await fs.readFile(path.join(dir, f), "utf8")))));
+            console.log(goldenReport(runs));
             return;
         }
         case "log-pr": {
@@ -109,7 +108,7 @@ async function main() {
             return;
         }
         default:
-            console.log("nagent index | ask \"q\" | search \"words\" | vitals | sources | golden [file] | log-pr");
+            console.log("nagent index | ask \"q\" | search \"words\" | vitals | sources | golden [file ...] [--json out] | golden-report [dir] | log-pr");
     }
 }
 main().catch((err) => { console.error(err instanceof Error ? err.message : err); process.exit(1); });

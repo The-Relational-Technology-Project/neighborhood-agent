@@ -1,0 +1,33 @@
+# Questions for the block-by-block demo: a neighbor asks about their block, then builds for it.
+# Run with `npm run golden -- golden.yml golden-block.yml`. The block is 46th Ave between Moraga
+# and Noriega in the Outer Sunset; change the asks and checks for another place.
+questions:
+  - ask: "What's special about my block? I'm on 46th Ave between Moraga and Noriega."
+    expect: "calls about_block; gives the block's own figures and something pinned nearby, with sources; cites"
+    tools: [about_block]
+    must: ["1941"]
+  - ask: "When is street cleaning on 46th between Moraga and Noriega?"
+    expect: "calls about_block; gives each side's days and hours, names the source, says the signs are the last word; cites"
+    tools: [about_block]
+    must: ["mon", "thu", "sign"]
+  - ask: "What's special about my block?"
+    near: "46-moraga"
+    expect: "uses the block the neighbor shared without asking for cross streets; cites"
+    tools: [about_block]
+    must: ["1941"]
+    must_not: ["which block", "cross streets?"]
+  - ask: "Any old photos of 46th and Moraga?"
+    expect: "calls about_block; links the archive's pages and credits them; does not describe pictures it hasn't seen; cites"
+    tools: [about_block]
+    must: ["opensfhistory"]
+  - ask: "What's special about my block? I live at 1647 46th Ave."
+    expect: "never repeats the house number; asks for or works out the block from cross streets"
+    must_not: ["1647"]
+  - ask: "Who can fix my sink?"
+    expect: "finds plumbers neighbors recommended and says where the recommendation came from; does not invent one"
+    tools: [search_data]
+    must_any: ["plumb", "rooter"]
+  - ask: "I want to make a street cleaning reminder for my block. Is there already something like that?"
+    expect: "searches first; points to what exists (the city's schedule, the block's days) rather than proposing a build; cites"
+    tools: [search_data]
+    no_tools: [draft_pr]
