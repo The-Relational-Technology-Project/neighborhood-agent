@@ -1,4 +1,5 @@
 import { aboutBlock, formatAbout } from "../blocks/geo.js";
+import { findSweepSource, formatSweeping, sweepingForBlocks } from "../blocks/sweeping.js";
 import { localDate } from "../data/index.js";
 import { getVitalSigns } from "../vitals/index.js";
 import { formatRecord, runTool } from "../agent/tools.js";
@@ -95,7 +96,7 @@ export function liveEndpoints(state, base) {
     const ex = blockExamples(state);
     return [
         { name: "records", method: "GET", url: `${base}/records.json`, params: { q: "plain words (optional)", kind: `one or more of ${PACK_KINDS.join(", ")}, comma separated (optional)`, upcoming: "1 for dated records from today on", on: "YYYY-MM-DD", limit: "up to 200" }, returns: "{ records: [{ id, kind, title, date?, start?, end?, location?, text, url?, tags?, source, fetched_at }], today }", example: `${base}/records.json?kind=event&upcoming=1&limit=20`, for: "A calendar, a directory, a search box: any list of the place's public records." },
-        ...(state.repo.blocks.length ? [{ name: "block", method: "GET", url: `${base}/block.json`, params: { where: `a block id, 'lat,lng', a block ('${ex.block}') or a corner ('${ex.corner}')` }, returns: "{ found, label, lat, lng, blocks, near, photos, area, everywhere }", example: `${base}/block.json?where=${encodeURIComponent(ex.corner)}`, for: "A map or a page that shows what the notes hold about one block." }] : []),
+        ...(state.repo.blocks.length ? [{ name: "block", method: "GET", url: `${base}/block.json`, params: { where: `a block id, 'lat,lng', a block ('${ex.block}') or a corner ('${ex.corner}')` }, returns: `{ found, label, lat, lng, blocks, near, photos, area, everywhere${findSweepSource(state.repo) ? ", street_cleaning: [{ block, sides: [{ side, days, weekday, from, to, weeks, holidays, next }], source, note }]" : ""} }`, example: `${base}/block.json?where=${encodeURIComponent(ex.corner)}`, for: `A map or a page that shows what the notes hold about one block: its history, old photographs${findSweepSource(state.repo) ? ", and its street cleaning days" : ""}.` }] : []),
         { name: "place", method: "GET", url: `${base}/place.json`, params: {}, returns: "The place, its sources with licenses and freshness, its rules, and these endpoints.", example: `${base}/place.json`, for: "The credit line, the catchment, and the rules to show beside the data." },
         { name: "mcp", method: "POST", url: `${base}/mcp`, params: { body: "JSON-RPC 2.0: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments } }" }, returns: "{ result: { content: [{ text }], structuredContent } }", example: `${base}/mcp`, for: "Everything else: vital signs, 311, a design brief, suggesting a source back." },
     ];
@@ -161,8 +162,10 @@ export async function recordsJson(state, p) {
         : state.index.byKind(asked[0], { upcoming, on: p.on, limit });
     return { records: records.map(recordJson), today: localDate(), built_at: state.index.builtAt, credit: placeInfo(state).agent };
 }
+/** The blocks a lookup is about: the block itself, or the blocks that meet at a corner. */
+export const lookedUp = (a) => (a.resolved.status === "corner" ? a.resolved.blocks.slice(0, 4) : a.resolved.blocks.slice(0, 1));
 /** One block lookup as plain JSON, for the MCP tool and GET /block.json. */
-export function blockJson(a, sources) {
+export function blockJson(a, sources, sweeping = []) {
     const note = (x) => ({ id: x.note.id, kind: x.note.kind ?? "note", title: x.note.title, text: x.note.text, at: x.note.at, lat: x.note.lat, lng: x.note.lng, years: x.note.years, extent: x.note.extent, sources: x.note.sources ?? [], photo: x.note.photo, ...(x.meters !== undefined ? { meters: Math.round(x.meters), how_far: x.far } : {}) });
     const r = a.resolved;
     return {
@@ -173,6 +176,7 @@ export function blockJson(a, sources) {
         lng: r.lng,
         blocks: r.blocks.slice(0, 4).map((b) => ({ id: b.id, name: b.name, lat: b.lat, lng: b.lng, about: b.about, elev_ft: b.elev_ft, built: b.built })),
         block_figures_from: sources,
+        ...(sweeping.length ? { street_cleaning: sweeping } : {}),
         near: a.near.map(note),
         photos: a.photos.map(note),
         area: a.area.map(note),
@@ -265,7 +269,7 @@ export function mcpTools(state) {
         },
         {
             name: "about_block",
-            description: `What the neighborhood's notes hold about one block or corner: how high it sits, when its homes were built, history and geology pinned on or near it, old photographs taken there (with links and credits), and what is true of the wider stretch. Give a block id from the grid, 'lat,lng', a block ('${ex.block}'), or a corner ('${ex.corner}'). Never send a house number.`,
+            description: `What the neighborhood's notes hold about one block or corner: how high it sits, when its homes were built, history and geology pinned on or near it, old photographs taken there (with links and credits), what is true of the wider stretch, and, where the place reads the city's schedule, its street cleaning days. Give a block id from the grid, 'lat,lng', a block ('${ex.block}'), or a corner ('${ex.corner}'). Never send a house number.`,
             inputSchema: { type: "object", properties: { where: { type: "string", description: "A block id, 'lat,lng', a block in words, or a corner." } }, required: ["where"], additionalProperties: false },
         },
         {
@@ -307,6 +311,27 @@ export function mcpTools(state) {
             },
         },
     ];
+}
+/** A record in two lines, for a brief: what it is, a sentence of it, and where it came from. search and get have all of it. */
+function briefRecord(r) {
+    const when = r.start ? ` (${r.start.slice(0, 16).replace("T", " ")})` : r.date ? ` (${r.date})` : "";
+    const text = r.text.replace(/\s+/g, " ").trim();
+    return `- [${r.kind}] ${r.title}${when}${r.location ? `, ${r.location}` : ""}: ${text.length > 260 ? `${text.slice(0, 260).replace(/\s+\S*$/, "")}…` : text} (${r.source.name}, ${r.url ?? r.source.url}; id ${r.id})`;
+}
+/** The block, short enough for a brief: its own line, the nearest few notes cut to a paragraph, and where the photographs are. about_block has all of it. */
+function briefBlock(a) {
+    const cut = (t, n) => (t.length > n ? `${t.slice(0, n).replace(/\s+\S*$/, "")}…` : t);
+    const src = (n) => (n.sources?.length ? ` Source: ${n.sources.slice(0, 2).map((x) => `[${x.name}](${x.url})`).join(", ")}.` : "");
+    const note = (x) => `- ${x.note.title}${x.note.years ? ` (${x.note.years})` : ""}${x.far ? `, ${x.far}` : ""}: ${cut(x.note.text, 360)}${src(x.note)}`;
+    const photos = a.photos.flatMap((x) => (x.note.sources?.length ? x.note.sources : x.note.photo ? [{ name: x.note.photo.credit ?? "the photograph", url: x.note.photo.page }] : [])).slice(0, 4);
+    return [
+        ...lookedUp(a).map((b) => `${b.name}${b.about ? `: ${b.about}` : ""}`),
+        ...(a.near.length ? ["", a.widened ? "Nothing is pinned on this block itself. The closest history, a few blocks off:" : "History pinned on or near it:", ...a.near.slice(0, 3).map(note)] : []),
+        ...(a.area.length ? ["", "About the wider stretch it sits in:", ...a.area.slice(0, 1).map(note)] : []),
+        ...(a.everywhere.length ? ["", "True of every block here:", ...a.everywhere.slice(0, 1).map((n) => note({ note: n }))] : []),
+        ...(photos.length ? ["", `Old photographs taken near here (link to the page and credit it by name): ${photos.map((x) => `[${x.name}](${x.url})`).join(", ")}`] : []),
+        "", "Call about_block for everything the notes hold about this block.",
+    ].join("\n");
 }
 /** From the records an idea matched, the kinds worth wiring in, each with its live URL and its sources' terms. */
 async function dataFor(state, base, words, matched) {
@@ -361,6 +386,7 @@ export async function callTool(name, args, deps) {
             const where = String(args.where ?? "").trim().slice(0, 200);
             const block = where && state.repo.blocks.length ? aboutBlock(state.repo, where) : undefined;
             const found = block && block.resolved.lat !== undefined ? block : undefined;
+            const sweeping = found ? await sweepingForBlocks(state.repo, lookedUp(found)) : [];
             const doors = state.repo.doors.map((d) => ({ group: d.group, good_for: d.moments, what: d.what ?? null, how_to_join: d.how_to_join ?? null, url: d.url ?? null }));
             const constituents = state.repo.constituents.map((c) => ({ name: c.name, kind: c.kind, advocates: c.advocates }));
             const notes = placeNotes(state.repo.placeMd, /voice|cares|does not do/i);
@@ -372,17 +398,17 @@ export async function callTool(name, args, deps) {
                 `Design brief for ${info.label}: "${idea}"`,
                 "",
                 "This is where to start, not the whole picture. The notes hold what neighbors have written down; the rest lives with people. Talk to one of the people or groups below before you build, and build the first version with them.",
+                ...(found ? ["", `## The block: ${found.resolved.label}`, `Read this block live: ${deps.base}/block.json?where=${encodeURIComponent(found.resolved.blocks[0]?.id ?? where)}`, ...sweeping.map(formatSweeping), briefBlock(found)] : where ? ["", "## The block", state.repo.blocks.length ? `The notes could not place "${where}". Try a block id or a corner.` : "This place keeps no block-by-block notes."] : []),
                 "",
                 "## Already here (build with these, not around them)",
-                here.length ? here.map(formatRecord).join("\n\n") : "Nothing in the notes matches. That does not mean nothing exists: ask a steward before assuming the gap is real.",
-                ...(soon.length ? ["", "## Coming up that touches this", soon.map(formatRecord).join("\n\n")] : []),
-                ...(asked.length ? ["", "## Neighbors have already asked for", asked.map(formatRecord).join("\n\n")] : []),
+                here.length ? here.map(briefRecord).join("\n") : "Nothing in the notes matches. That does not mean nothing exists: ask a steward before assuming the gap is real.",
+                ...(soon.length ? ["", "## Coming up that touches this", soon.map(briefRecord).join("\n")] : []),
+                ...(asked.length ? ["", "## Neighbors have already asked for", asked.map(briefRecord).join("\n")] : []),
                 "",
                 "## Who to talk to first",
-                ...(people.length ? [people.map(formatRecord).join("\n\n")] : []),
+                ...(people.length ? [people.map(briefRecord).join("\n")] : []),
                 ...(doors.length ? ["Groups glad to meet people:", ...doors.map((d) => `- ${d.group}: ${d.what ?? ""} How to get in: ${d.how_to_join ?? "see the link"} ${d.url ?? ""}`.trim())] : []),
                 `The stewards: ${contact}`,
-                ...(found ? ["", `## The block: ${found.resolved.label}`, formatAbout(found, { sources: state.repo.blocksSources })] : where ? ["", "## The block", state.repo.blocks.length ? `The notes could not place "${where}". Try a block id or a corner.` : "This place keeps no block-by-block notes."] : []),
                 ...(constituents.length ? ["", "## More-than-human neighbors (if the plan touches them, name their advocates and ask)", ...constituents.map((c) => `- ${c.name} (${c.kind}). Advocates: ${c.advocates.join("; ") || "none listed"}`)] : []),
                 ...(notes.length ? ["", "## How this place sounds and what it holds close", ...notes.map((n) => `### ${n.heading}\n${n.text}`)] : []),
                 ...(data.length ? ["", "## Data the build can read live (don't copy it in)", ...data.map(dataLine), "For the URLs and a snippet, call live_endpoints."] : []),
@@ -393,7 +419,7 @@ export async function callTool(name, args, deps) {
                 idea, place: info,
                 already_here: here.map(recordJson), coming_up: soon.map(recordJson), already_asked_for: asked.map(recordJson),
                 talk_to: { people: people.map(recordJson), doors, stewards: contact },
-                ...(found ? { block: blockJson(found, state.repo.blocksSources) } : {}),
+                ...(found ? { block: { ...blockJson(found, state.repo.blocksSources, sweeping), url: `${deps.base}/block.json?where=${encodeURIComponent(found.resolved.blocks[0]?.id ?? where)}` } } : {}),
                 constituents, place_notes: notes, live_data: data, rules, contribute: give,
             });
         }
@@ -439,7 +465,8 @@ export async function callTool(name, args, deps) {
             const r = about.resolved;
             if (r.lat === undefined)
                 return fail(formatAbout(about));
-            return text(formatAbout(about, { sources: state.repo.blocksSources }), blockJson(about, state.repo.blocksSources));
+            const sweeping = await sweepingForBlocks(state.repo, lookedUp(about));
+            return text([formatAbout(about, { sources: state.repo.blocksSources }), ...sweeping.map(formatSweeping)].join("\n\n"), blockJson(about, state.repo.blocksSources, sweeping));
         }
         case "vital_signs": {
             const signs = await getVitalSigns(state.repo);

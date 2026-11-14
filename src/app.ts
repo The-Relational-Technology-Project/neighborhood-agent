@@ -12,7 +12,8 @@ import { emailConfigured, emailStewards, stewardAddresses, type Attachment } fro
 import { isoWeek } from "./agent/questionlog.js";
 import type { AppState } from "./state.js";
 import { getVitalSigns } from "./vitals/index.js";
-import { blockExamples, blockJson, handleRpc, recordsJson, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
+import { sweepingForBlocks } from "./blocks/sweeping.js";
+import { blockExamples, blockJson, handleRpc, lookedUp, recordsJson, mcpTools, placePack, PACK_VERSION } from "./place/pack.js";
 import { aboutBlock, resolveWhere } from "./blocks/geo.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
@@ -105,11 +106,12 @@ app.get("/records.json", async (c) => {
   return "error" in out ? c.json(out, 400, CORS) : c.json(out, 200, { ...CORS, "cache-control": "public, max-age=300" });
 });
 // One block, as data: what the notes hold about it and what is pinned nearby. For maps and other tools.
-app.get("/block.json", (c) => {
+app.get("/block.json", async (c) => {
   if (!packReads.allow(clientIp(c))) return c.json({ error: "Too many requests. Try again in a few minutes." }, 429, CORS);
   const where = (c.req.query("where") ?? c.req.query("id") ?? "").slice(0, 200);
   if (!where) { const ex = blockExamples(state); return c.json({ error: `Give ?where= a block id, 'lat,lng', a block ('${ex.block}') or a corner ('${ex.corner}').`, blocks: state.repo.blocks.length }, 400, CORS); }
-  const about = blockJson(aboutBlock(state.repo, where), state.repo.blocksSources);
+  const looked = aboutBlock(state.repo, where);
+  const about = blockJson(looked, state.repo.blocksSources, looked.resolved.lat !== undefined ? await sweepingForBlocks(state.repo, lookedUp(looked)) : []);
   return c.json(about, about.found ? 200 : 404, { ...CORS, "cache-control": "public, max-age=300" });
 });
 app.get("/mcp", (c) => c.json({ name: "knowy-place-pack", version: PACK_VERSION, transport: "POST JSON-RPC 2.0 here (initialize, tools/list, tools/call). No auth.", tools: mcpTools(state).map((t) => t.name), about: `${siteBase(c)}/place.json` }, 200, CORS));
