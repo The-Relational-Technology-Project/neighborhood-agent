@@ -67,6 +67,35 @@ IBM Granite 4.2 8B also ran: 14 of 19 without the look-first setting, at a media
 question, several times slower than the others on the host it was routed to. Its run file was not
 kept.
 
+## Repeats, 14 November 2026
+
+Three more passes each for the reference and the two closest open models, same questions, same
+notes, same day. Passed of 19, then how many of the seven block questions passed.
+
+| Model | Pass 1 | Pass 2 | Pass 3 | Pass 4 | Mean | Block questions (of 7) |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Claude Haiku 5.5 (reference) | 18 | 16 | 18 | 18 | 17.5 | 6, 6, 7, 7 |
+| Mistral Small 3.2 24B | 16 | 15 | 16 | 17 | 16.0 | 6, 6, 7, 7 |
+| Gemma 4 26B, look first | 14 | 14 | 14 | did not finish | 14.0 | 5, 5, 5 |
+
+- **The reference moves too.** Claude Haiku ranged from 16 to 18 on identical questions. One pass
+  really is not a measurement.
+- **Mistral Small 3.2 is 1.5 questions behind on average**, and matches the reference on the block
+  questions pass for pass.
+- **On the block questions the facts were always right.** Every block failure by an open model in
+  these passes was the same one: it named the source in brackets but left out the link, which the
+  citation check counts as a fail. No pass gave a wrong day, a wrong year, or repeated the house
+  number. An earlier line on this page said every model that looked "got the block's history and
+  street cleaning days right"; that holds for the facts, not for the links.
+- **The same two questions fail for the open models every time**: bringing up the plovers unasked
+  when someone plans a beach bonfire, and the correction question whose check is too narrow (it
+  fails the reference three times in four as well).
+- No pass on any model produced a malformed tool call.
+
+The bar for making an open model the default (within one question of the reference on repeats, and
+all seven block questions) is not met yet. Mistral Small 3.2 is closest. The fix most likely to
+close it is small: require a link wherever a source is named.
+
 ## What this says so far
 
 - **A 24B open model is close to the reference.** Mistral Small 3.2 (24B, Apache 2.0, about 14 GB
@@ -87,12 +116,12 @@ kept.
   including the reference, on a check that wants one particular tool; the check is too narrow. The
   bonfire question (bring up the plovers unprompted) is the one that separates Claude from the rest.
 - **Cost.** Each full pass used about half a million input tokens, nearly all of it the standing
-  prompt sent again each round. All eleven passes together cost about $0.40. The prompt is the thing
+  prompt sent again each round. All eleven first passes together cost about $0.40, and the eight repeat passes about $0.30. The prompt is the thing
   to shrink for a model running on a box in the room.
 
 ## Not yet done
 
-- Repeats, so differences can be told from noise.
+- More repeats on more models. Three passes on three models is a start.
 - A run on hardware a community owns. Everything here went through a hosted router.
 - Search by meaning on an open embedding model. These runs used Voyage.
 - A shorter standing prompt for small models.
