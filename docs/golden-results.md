@@ -107,6 +107,7 @@ close it is small: require a link wherever a source is named.
 - **Being pushed to act must not mean acting on the world.** In an early version of look-first, a
   model's forced first call was `draft_pr` on one question and `ask_a_neighbor` on another. The
   setting now offers only the tools that read on that first round.
+- **Being made to look can produce an answer about the wrong place.** Asked about a reminder "for my block" with no block named, Mistral Small with look-first looked up a block of its own choosing (Irving between 45th and 46th) and gave that block's schedule as the neighbor's. The figures were real; the block was assumed. Without look-first it did not do this. Look-first helps models that don't look and can hurt ones that already do.
 - **Tool calling itself held up.** No run produced arguments that were not JSON or a tool that does
   not exist. Qwen 3.5 9B returned an empty answer five times without look-first.
 - **The block questions are the easy ones.** Every model that looked got the block's history and
