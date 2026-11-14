@@ -312,6 +312,27 @@ export function mcpTools(state) {
         },
     ];
 }
+/** A record in two lines, for a brief: what it is, a sentence of it, and where it came from. search and get have all of it. */
+function briefRecord(r) {
+    const when = r.start ? ` (${r.start.slice(0, 16).replace("T", " ")})` : r.date ? ` (${r.date})` : "";
+    const text = r.text.replace(/\s+/g, " ").trim();
+    return `- [${r.kind}] ${r.title}${when}${r.location ? `, ${r.location}` : ""}: ${text.length > 260 ? `${text.slice(0, 260).replace(/\s+\S*$/, "")}…` : text} (${r.source.name}, ${r.url ?? r.source.url}; id ${r.id})`;
+}
+/** The block, short enough for a brief: its own line, the nearest few notes cut to a paragraph, and where the photographs are. about_block has all of it. */
+function briefBlock(a) {
+    const cut = (t, n) => (t.length > n ? `${t.slice(0, n).replace(/\s+\S*$/, "")}…` : t);
+    const src = (n) => (n.sources?.length ? ` Source: ${n.sources.slice(0, 2).map((x) => `[${x.name}](${x.url})`).join(", ")}.` : "");
+    const note = (x) => `- ${x.note.title}${x.note.years ? ` (${x.note.years})` : ""}${x.far ? `, ${x.far}` : ""}: ${cut(x.note.text, 360)}${src(x.note)}`;
+    const photos = a.photos.flatMap((x) => (x.note.sources?.length ? x.note.sources : x.note.photo ? [{ name: x.note.photo.credit ?? "the photograph", url: x.note.photo.page }] : [])).slice(0, 4);
+    return [
+        ...lookedUp(a).map((b) => `${b.name}${b.about ? `: ${b.about}` : ""}`),
+        ...(a.near.length ? ["", a.widened ? "Nothing is pinned on this block itself. The closest history, a few blocks off:" : "History pinned on or near it:", ...a.near.slice(0, 3).map(note)] : []),
+        ...(a.area.length ? ["", "About the wider stretch it sits in:", ...a.area.slice(0, 1).map(note)] : []),
+        ...(a.everywhere.length ? ["", "True of every block here:", ...a.everywhere.slice(0, 1).map((n) => note({ note: n }))] : []),
+        ...(photos.length ? ["", `Old photographs taken near here (link to the page and credit it by name): ${photos.map((x) => `[${x.name}](${x.url})`).join(", ")}`] : []),
+        "", "Call about_block for everything the notes hold about this block.",
+    ].join("\n");
+}
 /** From the records an idea matched, the kinds worth wiring in, each with its live URL and its sources' terms. */
 async function dataFor(state, base, words, matched) {
     const by = new Map();
@@ -377,17 +398,17 @@ export async function callTool(name, args, deps) {
                 `Design brief for ${info.label}: "${idea}"`,
                 "",
                 "This is where to start, not the whole picture. The notes hold what neighbors have written down; the rest lives with people. Talk to one of the people or groups below before you build, and build the first version with them.",
+                ...(found ? ["", `## The block: ${found.resolved.label}`, `Read this block live: ${deps.base}/block.json?where=${encodeURIComponent(found.resolved.blocks[0]?.id ?? where)}`, ...sweeping.map(formatSweeping), briefBlock(found)] : where ? ["", "## The block", state.repo.blocks.length ? `The notes could not place "${where}". Try a block id or a corner.` : "This place keeps no block-by-block notes."] : []),
                 "",
                 "## Already here (build with these, not around them)",
-                here.length ? here.map(formatRecord).join("\n\n") : "Nothing in the notes matches. That does not mean nothing exists: ask a steward before assuming the gap is real.",
-                ...(soon.length ? ["", "## Coming up that touches this", soon.map(formatRecord).join("\n\n")] : []),
-                ...(asked.length ? ["", "## Neighbors have already asked for", asked.map(formatRecord).join("\n\n")] : []),
+                here.length ? here.map(briefRecord).join("\n") : "Nothing in the notes matches. That does not mean nothing exists: ask a steward before assuming the gap is real.",
+                ...(soon.length ? ["", "## Coming up that touches this", soon.map(briefRecord).join("\n")] : []),
+                ...(asked.length ? ["", "## Neighbors have already asked for", asked.map(briefRecord).join("\n")] : []),
                 "",
                 "## Who to talk to first",
-                ...(people.length ? [people.map(formatRecord).join("\n\n")] : []),
+                ...(people.length ? [people.map(briefRecord).join("\n")] : []),
                 ...(doors.length ? ["Groups glad to meet people:", ...doors.map((d) => `- ${d.group}: ${d.what ?? ""} How to get in: ${d.how_to_join ?? "see the link"} ${d.url ?? ""}`.trim())] : []),
                 `The stewards: ${contact}`,
-                ...(found ? ["", `## The block: ${found.resolved.label}`, formatAbout(found, { sources: state.repo.blocksSources }), ...sweeping.map(formatSweeping), `Read this block live: ${deps.base}/block.json?where=${encodeURIComponent(found.resolved.blocks[0]?.id ?? where)}`] : where ? ["", "## The block", state.repo.blocks.length ? `The notes could not place "${where}". Try a block id or a corner.` : "This place keeps no block-by-block notes."] : []),
                 ...(constituents.length ? ["", "## More-than-human neighbors (if the plan touches them, name their advocates and ask)", ...constituents.map((c) => `- ${c.name} (${c.kind}). Advocates: ${c.advocates.join("; ") || "none listed"}`)] : []),
                 ...(notes.length ? ["", "## How this place sounds and what it holds close", ...notes.map((n) => `### ${n.heading}\n${n.text}`)] : []),
                 ...(data.length ? ["", "## Data the build can read live (don't copy it in)", ...data.map(dataLine), "For the URLs and a snippet, call live_endpoints."] : []),
