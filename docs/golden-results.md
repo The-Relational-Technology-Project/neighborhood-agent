@@ -124,6 +124,27 @@ maker's card or (3P) a third party, checked that day.
 - For how these models do at planning and building in the Builder, see `MODELS-BY-TASK.md` on the
   `human-scale` branch of relational-builder.
 
+## Repeats on the newer candidates, 15 November 2026
+
+Three more passes each for the two best newer models, plus Gemma 4 31B with look-first.
+
+| Model | Size | Passed of 19, each pass | Mean | Block questions, of 7 |
+| --- | --- | --- | ---: | --- |
+| Mistral Small 3.2 (from the 14 Nov repeats) | 24B | 16, 15, 16, 17 | 16.0 | 6, 6, 7, 7 |
+| GLM-5.3-Flash | 320B | 17, 16, 15, 14 | 15.5 | 6, 6, 7, 5 |
+| Gemma 4 31B | 30.7B | 15, 15, 15, 15 | 15.0 | 6, 6, 6, 6 |
+| Gemma 4 31B, look first | 30.7B | 12, 14, 16 | 14.0 | 5, 6, 6 |
+
+- **GLM-5.3-Flash's 17 was its best pass, not its level.** Over four passes it averages 15.5, below
+  a model a thirteenth its size.
+- **Gemma 4 31B is the steadiest model tested**: the same score and the same four misses every
+  pass (the daily pizza, the narrow correction check, the bonfire, and whether a reminder exists).
+- **Look-first made Gemma 4 31B worse and less steady.** It already looks. This is the second model
+  where forcing a lookup hurt; the setting is for models that answer without looking, and should be
+  chosen per model.
+- **The smallest of the three is still the best at this job.** If one model is to be offered for
+  Knowy, the evidence so far points to Mistral Small 3.2.
+
 ## What this says so far
 
 - **A 24B open model is close to the reference.** Mistral Small 3.2 (24B, Apache 2.0, about 14 GB
