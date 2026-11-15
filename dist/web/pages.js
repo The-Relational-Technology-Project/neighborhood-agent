@@ -22,9 +22,9 @@ export function vitalLine(signs) {
     const list = signs.filter((s) => keep.includes(s.id) && !s.error);
     if (!list.length)
         return "";
-    return `<div class="vline">${list.map((s) => `<span><b>${esc(s.label)}</b> <a href="/sources" title="${esc(s.source.name)}">${esc(short(s))}</a></span>`).join("")}</div>`;
+    return `<div class="vline">${list.map((s) => `<span data-v="${esc(s.id)}"><b>${esc(s.label)}</b> <a href="/sources" title="${esc(s.source.name)}">${esc(short(s))}</a></span>`).join("")}</div>`;
 }
-const SUGGESTIONS = ["Who should I talk to about meeting neighbors?", "What's happening this weekend?", "What was here before the houses?", "How's the ocean today?", "I want to add an event"];
+const SUGGESTIONS = ["What's special about my block?", "Who should I talk to about meeting neighbors?", "What's happening this weekend?", "What was here before the houses?", "How's the ocean today?", "I want to add an event"];
 export function vitalsHtml(signs) {
     if (!signs.length)
         return "";
@@ -39,9 +39,8 @@ export function homePage(state) {
         ? `<img src="/brand/logo.webp" alt="${esc(siteName(state))}" width="250" height="236" fetchpriority="high">`
         : `<h1>${esc(siteName(state))}</h1>`;
     const body = `
-${promiseLine()}
 <div class="chat" id="log" role="log" aria-live="polite">
-  <div class="hero" id="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}<div data-vline></div></div>
+  <div class="hero" id="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}${promiseLine()}<div data-vline></div></div>
   <div class="msg a"><span class="who a">${esc(siteName(state))}</span><span class="txt">${ready ? "Ask me something about the neighborhood! I'll share what I know and point you to neighbors." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
 <div class="composer">
