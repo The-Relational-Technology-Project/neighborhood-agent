@@ -187,6 +187,8 @@ body.home main{flex:1 1 auto;width:100%;min-height:0;display:flex;flex-direction
 body.home .chat{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin:0 0 8px;background:transparent;border:0;padding:6px 2px;scroll-padding-bottom:12px}
 body.home .composer{flex:0 0 auto;padding-bottom:max(12px,env(safe-area-inset-bottom))}
 .hero [data-vline]{min-height:21px}
+.hero .promise{margin:0 0 8px}
+.hero .vline [data-v=air],.hero .vline [data-v=plovers]{display:none}
 
 @media (max-width:560px){
   .grid{grid-template-columns:1fr}
@@ -228,7 +230,7 @@ body.home .composer{flex:0 0 auto;padding-bottom:max(12px,env(safe-area-inset-bo
   body.home:not(.chatting) main{justify-content:center;padding-bottom:14vh}
   body.home:not(.chatting) .chat{flex:0 1 auto}
   body.home:not(.chatting) .msg.a .txt{background:none;padding:0;font-family:var(--display);font-weight:500;font-size:26px;line-height:1.3;max-width:none}
-  body.home .hero,body.home main>.promise{display:none}
+  body.home .hero{display:none}
   body.home .composer{padding-bottom:24px}
   .txt{max-width:80%}
 }
