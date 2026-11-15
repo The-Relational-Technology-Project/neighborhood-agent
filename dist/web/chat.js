@@ -158,7 +158,7 @@ export const chatScript = String.raw `
   form.addEventListener('submit', function(ev){
     ev.preventDefault();
     var q = box.value.trim(); if (!q) return;
-    box.value = ''; grow(); if (touch) box.blur(); if (suggest) { suggest.remove(); suggest = null; } addMsg('user', q); anchor = log.lastChild; userScrolled = false; history.push({ role: 'user', content: q }); setBusy(true);
+    box.value = ''; grow(); if (touch) box.blur(); if (suggest) { suggest.remove(); suggest = null; } var hero = document.getElementById('hero'); if (hero) hero.remove(); document.body.classList.add('chatting'); addMsg('user', q); anchor = log.lastChild; userScrolled = false; history.push({ role: 'user', content: q }); setBusy(true);
     var out = addMsg('assistant', ''); var text = '';
     fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(near ? { messages: history, near: near.id } : { messages: history }) })
       .then(function(r){

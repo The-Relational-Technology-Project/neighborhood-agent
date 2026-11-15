@@ -1,7 +1,7 @@
 import type { AppState } from "../state.js";
 import type { VitalSign } from "../vitals/types.js";
 import type { SourceStatus } from "../data/loader.js";
-import { esc, layout, md } from "./html.js";
+import { esc, layout, md, promiseLine } from "./html.js";
 
 function siteName(state: AppState): string {
   const m = state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/);
@@ -23,7 +23,7 @@ export const shell = (state: AppState, path: string, title: string, body: string
   layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), siteUrl: state.cfg.siteUrl, brand: state.brand, repoUrl: state.github.repoUrl, path, body, head });
 
 /** One compact line of the most-asked vital signs; the full set is on /sources. */
-function vitalLine(signs: VitalSign[]): string {
+export function vitalLine(signs: VitalSign[]): string {
   const keep = ["tide", "water", "air", "plovers"];
   const short = (s: VitalSign) => (s.id === "plovers" ? (s.value.startsWith("protection") ? "dogs leashed on the south beach" : "off season") : s.id === "water" ? s.value.split(",")[0] : s.value.replace(/^next /, ""));
   const list = signs.filter((s) => keep.includes(s.id) && !s.error);
@@ -41,14 +41,15 @@ export function vitalsHtml(signs: VitalSign[]): string {
     .join("")}</div>`;
 }
 
-export function homePage(state: AppState, signs: VitalSign[]): string {
+export function homePage(state: AppState): string {
   const ready = Boolean(state.agent);
   const logo = state.brand.has("logo.webp")
     ? `<img src="/brand/logo.webp" alt="${esc(siteName(state))}" width="250" height="236" fetchpriority="high">`
     : `<h1>${esc(siteName(state))}</h1>`;
   const body = `
+${promiseLine()}
 <div class="chat" id="log" role="log" aria-live="polite">
-  <div class="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}${vitalLine(signs)}<p class="promise">Looked after by neighbors · reads only <a href="/sources">public sources</a> · keeps nothing you type · <a href="/about">how it works</a></p></div>
+  <div class="hero" id="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}<div data-vline></div></div>
   <div class="msg a"><span class="who a">${esc(siteName(state))}</span><span class="txt">${ready ? "Ask me something about the neighborhood! I'll share what I know and point you to neighbors." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
 <div class="composer">

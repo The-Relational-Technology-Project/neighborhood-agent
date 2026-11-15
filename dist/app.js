@@ -16,8 +16,9 @@ import { blockExamples, blockJson, handleRpc, lookedUp, recordsJson, mcpTools, p
 import { aboutBlock, resolveWhere } from "./blocks/geo.js";
 import { RateLimiter } from "./agent/budget.js";
 import { chatScript } from "./web/chat.js";
+import { swScript } from "./web/sw.js";
 import { askCard, registerCommons, relayOn } from "./knowers/routes.js";
-import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage, stewardsPage } from "./web/pages.js";
+import { aboutPage, contactPage, correctPage, homePage, proposalsPage, sourcesPage, stewardsPage, vitalLine } from "./web/pages.js";
 export function createApp(state) {
     const app = new Hono();
     // Serverless hosts: make sure the index exists, and refresh it in the background when stale.
@@ -44,7 +45,10 @@ export function createApp(state) {
         return c.json({ name, short_name: name.split(" ")[0], start_url: "/", display: "standalone", background_color: "#fdf8ec", theme_color: "#fdf8ec", icons }, 200, { "content-type": "application/manifest+json" });
     });
     app.get("/chat.js", (c) => c.body(chatScript, 200, { "content-type": "application/javascript; charset=utf-8", "cache-control": "public, max-age=300" }));
-    app.get("/", async (c) => c.html(homePage(state, await safeVitals())));
+    app.get("/sw.js", (c) => c.body(swScript, 200, { "content-type": "application/javascript; charset=utf-8", "cache-control": "no-cache" }));
+    /* The tide-and-air line, fetched by the page after it paints so a slow feed never delays the page. */
+    app.get("/vline", async (c) => c.html(vitalLine(await safeVitals()), 200, { "cache-control": "public, max-age=120" }));
+    app.get("/", (c) => c.html(homePage(state)));
     app.get("/about", (c) => c.html(aboutPage(state)));
     app.get("/sources", async (c) => c.html(sourcesPage(state, await safeVitals(), { mode: contactMode(), pending: await pendingFor("source") })));
     app.get("/proposals", async (c) => c.html(proposalsPage(state, await pendingFor("proposal"))));

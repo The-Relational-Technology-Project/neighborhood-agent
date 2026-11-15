@@ -1,4 +1,4 @@
-import { esc, layout, md } from "./html.js";
+import { esc, layout, md, promiseLine } from "./html.js";
 function siteName(state) {
     const m = state.repo.placeMd.match(/Working name:\s*\*\*(.+?)\*\*/);
     return m?.[1] ?? "Neighborhood agent";
@@ -16,7 +16,7 @@ function placeName(state) {
 }
 export const shell = (state, path, title, body, head) => layout({ title: path === "/" ? `${siteName(state)}${tagline(state) ? ` · ${tagline(state)}` : ""}` : `${title} · ${siteName(state)}`, siteName: siteName(state), tagline: tagline(state), placeName: placeName(state), siteUrl: state.cfg.siteUrl, brand: state.brand, repoUrl: state.github.repoUrl, path, body, head });
 /** One compact line of the most-asked vital signs; the full set is on /sources. */
-function vitalLine(signs) {
+export function vitalLine(signs) {
     const keep = ["tide", "water", "air", "plovers"];
     const short = (s) => (s.id === "plovers" ? (s.value.startsWith("protection") ? "dogs leashed on the south beach" : "off season") : s.id === "water" ? s.value.split(",")[0] : s.value.replace(/^next /, ""));
     const list = signs.filter((s) => keep.includes(s.id) && !s.error);
@@ -33,14 +33,15 @@ export function vitalsHtml(signs) {
         .map((s) => `<span><b>${esc(s.label)}</b> ${esc(s.value)} <a href="${esc(s.source.url)}" title="${esc(s.source.name)}, fetched ${esc(s.fetched_at.slice(0, 16).replace("T", " "))}">${esc(s.source.name)}</a></span>`)
         .join("")}</div>`;
 }
-export function homePage(state, signs) {
+export function homePage(state) {
     const ready = Boolean(state.agent);
     const logo = state.brand.has("logo.webp")
         ? `<img src="/brand/logo.webp" alt="${esc(siteName(state))}" width="250" height="236" fetchpriority="high">`
         : `<h1>${esc(siteName(state))}</h1>`;
     const body = `
+${promiseLine()}
 <div class="chat" id="log" role="log" aria-live="polite">
-  <div class="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}${vitalLine(signs)}<p class="promise">Looked after by neighbors · reads only <a href="/sources">public sources</a> · keeps nothing you type · <a href="/about">how it works</a></p></div>
+  <div class="hero" id="hero">${logo}${tagline(state) ? `<p class="tagline">${esc(tagline(state))}</p>` : ""}<div data-vline></div></div>
   <div class="msg a"><span class="who a">${esc(siteName(state))}</span><span class="txt">${ready ? "Ask me something about the neighborhood! I'll share what I know and point you to neighbors." : "I'm not connected to a model yet, so I can't answer. The sources page shows what I read."}</span></div>
 </div>
 <div class="composer">
