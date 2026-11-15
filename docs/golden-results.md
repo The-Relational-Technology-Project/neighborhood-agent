@@ -96,6 +96,34 @@ The bar for making an open model the default (within one question of the referen
 all seven block questions) is not met yet. Mistral Small 3.2 is closest. The fix most likely to
 close it is small: require a link wherever a source is named.
 
+## Newer candidates, 15 November 2026
+
+One pass each, no look-first. "Fits a box" means a 16 to 24 GB GPU or a 32 GB Mac at 4-bit, per the
+maker's card or (3P) a third party, checked that day.
+
+| Model | Size | Fits a box | Passed of 19 | Block questions, of 7 | Median time |
+| --- | --- | --- | ---: | ---: | ---: |
+| GLM-5.3-Flash | 320B, 18B active | no | 17 | 6 | 7.3s |
+| Gemma 4 31B | 30.7B dense | 17.5 GB | 15 | 6 | 3.0s |
+| Mistral Small 4 | 119B, 6.5B active | no | 15 | 5 | 2.6s |
+| Qwen 3.8 27B | 27B dense | not stated | 14 | 5 | 4.7s |
+| Qwen 3.6 27B | 27B dense | about 17 GB (3P) | 11 | 2 | 15.9s |
+| LFM2.5-24B-A2B | 24B, 2B active | 15 to 16 GB (3P) | 11 | 3 | 3.4s |
+| LFM3 1.7B | 1.7B | about 1 GB | 10 | 3 | 9.6s |
+| Nemotron 3.5 Lightning | 30B, 3B active | not stated | 9 | 2 | 0.9s |
+| Qwen 3.6 35B-A3B | 35B, 3B active | 22 to 24 GB (3P) | 9 | 3 | 6.7s |
+
+- **Gemma 4 31B is the best new box-size candidate**: 15 without help. Four of its misses were
+  answering without looking, the thing look-first fixes, so it is the next one to run with that on.
+- **The best open score, 17, came from a model that is not small.** GLM-5.3-Flash is 320B, and
+  Mistral Small 4 is 119B. The names describe speed and price, not size.
+- **Mistral Small 3.2 (24B) is still the best box-size model here**, at a mean of 16 over four passes.
+- **Models sold for tool calling did not do well at this job.** The two Liquid models and Nemotron
+  3.5 Lightning were at the bottom. The job is less "call a tool" than "call it, then say only what
+  it returned, with its link".
+- For how these models do at planning and building in the Builder, see `MODELS-BY-TASK.md` on the
+  `human-scale` branch of relational-builder.
+
 ## What this says so far
 
 - **A 24B open model is close to the reference.** Mistral Small 3.2 (24B, Apache 2.0, about 14 GB
