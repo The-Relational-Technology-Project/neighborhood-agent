@@ -1,6 +1,6 @@
 /**
- * Vital signs for more-than-human neighbors: tide, water, air, plover season, park alerts, and
- * who's been seen lately. Each reads one public feed, carries its source, and fails soft.
+ * Vital signs for more-than-human neighbors: tide, water, air, the sun, plover season, park alerts,
+ * which birds people logged this week, and who's been seen lately. Each reads one public feed, carries its source, and fails soft.
  */
 import { localDate } from "../data/index.js";
 import type { DataRepo, SourceDef } from "../data/types.js";
@@ -162,6 +162,126 @@ const inaturalist: Reader = async (src) => {
   return out;
 };
 
+/** Drop a leading house number from a place name, so a sighting is never pinned to a home. */
+const blockLevel = (place: string) => place.replace(/^\s*\d+[A-Za-z]?\s+(?=\S)/, "").trim();
+
+const tzName = () => process.env.TZ_NAME ?? "America/Los_Angeles";
+
+function clock(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tzName(), hour: "numeric", minute: "2-digit", hour12: true }).format(d);
+  return parts.replace(/\s?([AP])M$/i, (_m, a: string) => `${a.toLowerCase()}m`);
+}
+
+/**
+ * Birds people logged nearby in the last few days: every species with how many times it was logged,
+ * and the latest sightings with their time and place. A record of what people uploaded, not a count
+ * of what is here.
+ */
+const inaturalistBirds: Reader = async (src) => {
+  const c = src.config ?? {};
+  const days = Math.min(30, Math.max(1, Number(c.days ?? 7)));
+  const today = localDate();
+  const from = new Date(`${today}T12:00:00Z`);
+  from.setUTCDate(from.getUTCDate() - (days - 1));
+  const d1 = from.toISOString().slice(0, 10);
+  const box = { nelat: String(c.nelat ?? 37.78), nelng: String(c.nelng ?? -122.47), swlat: String(c.swlat ?? 37.72), swlng: String(c.swlng ?? -122.52) };
+  const common = { ...box, iconic_taxa: String(c.iconic_taxa ?? "Aves"), d1, d2: today, verifiable: "true" };
+  const [countsRes, latestRes] = await Promise.all([
+    httpFetch(`https://api.inaturalist.org/v1/observations/species_counts?${new URLSearchParams({ ...common, per_page: "100" })}`),
+    httpFetch(`https://api.inaturalist.org/v1/observations?${new URLSearchParams({ ...common, per_page: "30", order: "desc", order_by: "observed_on" })}`),
+  ]);
+  const counts = ((await countsRes.json()) as { results?: Array<{ count: number; taxon?: { preferred_common_name?: string; name?: string } }> }).results ?? [];
+  const latest = ((await latestRes.json()) as { results?: Array<{ observed_on?: string; time_observed_at?: string | null; place_guess?: string; uri: string; taxon?: { preferred_common_name?: string; name?: string; rank?: string } }> }).results ?? [];
+  const name = (t?: { preferred_common_name?: string; name?: string }) => t?.preferred_common_name ?? t?.name ?? "";
+  const species = counts.map((r) => ({ name: name(r.taxon), n: r.count })).filter((r) => r.name);
+  const seenToday = new Set(latest.filter((o) => o.observed_on === today).map((o) => name(o.taxon)).filter(Boolean));
+  const recent: string[] = [];
+  const had = new Set<string>();
+  for (const o of latest) {
+    const n = name(o.taxon);
+    if (!n || had.has(n) || o.taxon?.rank !== "species") continue;
+    had.add(n);
+    const at = o.time_observed_at ? `, ${clock(new Date(o.time_observed_at))}` : "";
+    const where = o.place_guess ? ` at ${blockLevel(o.place_guess)}` : "";
+    recent.push(`${n}: ${o.observed_on ?? ""}${at}${where} ${o.uri}`);
+    if (recent.length >= 12) break;
+  }
+  const top = species.slice(0, 8).map((r) => r.name.toLowerCase());
+  const more = species.length - top.length;
+  const window = days === 1 ? "today" : `the last ${days} days`;
+  const view = `https://www.inaturalist.org/observations?${new URLSearchParams({ ...box, iconic_taxa: common.iconic_taxa, d1, subview: "table" })}`;
+  return [{
+    id: "birds",
+    constituent: "birds",
+    label: days === 1 ? "Birds today" : "Birds this week",
+    value: species.length ? `${top.join(", ")}${more > 0 ? `, and ${more} more` : ""}` : `none logged in ${window}`,
+    detail: species.length
+      ? [
+          `${species.length} species logged in ${window} (${d1} to ${today}), most logged first: ${species.map((r) => `${r.name} (${r.n})`).join(", ")}.`,
+          seenToday.size ? `Logged today, ${today}: ${[...seenToday].join(", ")}.` : `Nothing logged yet today, ${today}; people often upload in the evening.`,
+          `Latest sightings:\n${recent.join("\n")}`,
+          "This is what people photographed or recorded and uploaded, so common birds are undercounted and it is not a census.",
+        ].join("\n")
+      : undefined,
+    source: { name: src.name, url: view },
+    fetched_at: new Date().toISOString(),
+  }];
+};
+
+/** Sunrise and sunset for a day at a point, by NOAA's solar position equations. Good to about a minute at these latitudes. */
+export function sunTimes(day: string, lat: number, lon: number): { rise: Date; set: Date; dawn: Date; dusk: Date } | null {
+  const rad = Math.PI / 180;
+  const jd = Date.parse(`${day}T12:00:00Z`) / 86_400_000 + 2440587.5;
+  const t = (jd - 2451545) / 36525;
+  const L0 = (280.46646 + t * (36000.76983 + t * 0.0003032)) % 360;
+  const M = 357.52911 + t * (35999.05029 - 0.0001537 * t);
+  const e = 0.016708634 - t * (0.000042037 + 0.0000001267 * t);
+  const C = Math.sin(M * rad) * (1.914602 - t * (0.004817 + 0.000014 * t)) + Math.sin(2 * M * rad) * (0.019993 - 0.000101 * t) + Math.sin(3 * M * rad) * 0.000289;
+  const omega = 125.04 - 1934.136 * t;
+  const lambda = L0 + C - 0.00569 - 0.00478 * Math.sin(omega * rad);
+  const eps0 = 23 + (26 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60) / 60;
+  const eps = eps0 + 0.00256 * Math.cos(omega * rad);
+  const decl = Math.asin(Math.sin(eps * rad) * Math.sin(lambda * rad));
+  const y = Math.tan((eps / 2) * rad) ** 2;
+  const eqTime = 4 * (y * Math.sin(2 * L0 * rad) - 2 * e * Math.sin(M * rad) + 4 * e * y * Math.sin(M * rad) * Math.cos(2 * L0 * rad) - 0.5 * y * y * Math.sin(4 * L0 * rad) - 1.25 * e * e * Math.sin(2 * M * rad)) / rad;
+  const noonMin = 720 - 4 * lon - eqTime; // minutes after 00:00 UTC
+  const hourAngle = (zenith: number) => {
+    const cosH = Math.cos(zenith * rad) / (Math.cos(lat * rad) * Math.cos(decl)) - Math.tan(lat * rad) * Math.tan(decl);
+    return cosH < -1 || cosH > 1 ? null : Math.acos(cosH) / rad;
+  };
+  const ha = hourAngle(90.833);
+  const haCivil = hourAngle(96);
+  if (ha == null || haCivil == null) return null;
+  const base = Date.parse(`${day}T00:00:00Z`);
+  const at = (min: number) => new Date(base + min * 60_000);
+  return { rise: at(noonMin - 4 * ha), set: at(noonMin + 4 * ha), dawn: at(noonMin - 4 * haCivil), dusk: at(noonMin + 4 * haCivil) };
+}
+
+const sun: Reader = async (src) => {
+  const lat = Number(src.config?.latitude ?? 37.753);
+  const lon = Number(src.config?.longitude ?? -122.505);
+  const today = localDate();
+  const next = new Date(`${today}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const tomorrow = next.toISOString().slice(0, 10);
+  const a = sunTimes(today, lat, lon);
+  const b = sunTimes(tomorrow, lat, lon);
+  if (!a || !b) throw new Error("no sunrise or sunset at this latitude today");
+  const len = (x: { rise: Date; set: Date }) => { const m = Math.round((x.set.getTime() - x.rise.getTime()) / 60_000); return `${Math.floor(m / 60)}h ${m % 60}m`; };
+  const now = Date.now();
+  const value = now < a.rise.getTime() ? `rises ${clock(a.rise)}, sets ${clock(a.set)}` : now < a.set.getTime() ? `sets ${clock(a.set)} today` : `set ${clock(a.set)}; rises ${clock(b.rise)} tomorrow`;
+  const line = (label: string, day: string, x: NonNullable<ReturnType<typeof sunTimes>>) => `${label} (${day}): first light ${clock(x.dawn)}, sunrise ${clock(x.rise)}, sunset ${clock(x.set)}, last light ${clock(x.dusk)}, ${len(x)} of daylight.`;
+  return [{
+    id: "sun",
+    constituent: "sky",
+    label: "Sun",
+    value,
+    detail: `${line("Today", today, a)} ${line("Tomorrow", tomorrow, b)} Computed for the horizon at sea level, within about a minute; fog and the hills decide what you actually see. First and last light are civil twilight.`,
+    source: { name: src.name, url: src.url },
+    fetched_at: new Date().toISOString(),
+  }];
+};
+
 export const vitalReaders: Record<string, Reader> = {
   "noaa-tides": noaaTides,
   "open-meteo-marine": openMeteoMarine,
@@ -169,4 +289,6 @@ export const vitalReaders: Record<string, Reader> = {
   "plover-season": ploverSeason,
   "nps-alerts": npsAlerts,
   inaturalist,
+  "inaturalist-birds": inaturalistBirds,
+  sun,
 };

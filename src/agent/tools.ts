@@ -49,7 +49,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: "get_vital_signs",
     description:
-      "The current vital signs of the more-than-human neighbors: tide, water, air quality, plover protection season, park alerts, recent wildlife sightings. Each line carries its source and fetch time. Also returns which feeds have no public data, so you can say so.",
+      "The current vital signs of the more-than-human neighbors: tide, water, air quality, sunrise and sunset today and tomorrow, plover protection season, park alerts, the birds people logged nearby this week and today (species, how often, latest time and place), and other recent wildlife sightings. Use it for \"what birds are around today?\", \"what animals are around?\", \"when does the sun set tomorrow?\", \"how's the ocean?\". Each line carries its source and fetch time. Also returns which feeds have no public data, so you can say so.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
     strict: true,
   },

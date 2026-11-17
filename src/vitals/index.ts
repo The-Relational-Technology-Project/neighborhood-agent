@@ -29,7 +29,7 @@ export async function getVitalSigns(repo: DataRepo, opts: { force?: boolean } = 
       }
     }
   }));
-  const order = ["tide", "water", "air", "plovers", "park", "seen", "coyote", "plover-seen"];
+  const order = ["tide", "water", "air", "sun", "plovers", "park", "birds", "seen", "coyote", "plover-seen"];
   return out.sort((a, b) => (order.indexOf(a.id) + 100) % 100 - ((order.indexOf(b.id) + 100) % 100));
 }
 

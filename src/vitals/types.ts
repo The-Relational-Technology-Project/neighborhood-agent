@@ -1,6 +1,6 @@
 export interface VitalSign {
   id: string;
-  /** Which constituent this speaks for (ocean, dunes, plovers, coyotes, air). */
+  /** Which constituent this speaks for (ocean, dunes, plovers, coyotes, birds, air, sky). */
   constituent: string;
   label: string;
   value: string;
