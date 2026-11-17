@@ -274,7 +274,7 @@ export function mcpTools(state) {
         },
         {
             name: "vital_signs",
-            description: "The current vital signs of the more-than-human neighbors: tide, water, air quality, plover protection season, park alerts, recent wildlife sightings, each with its source and fetch time.",
+            description: "The current vital signs of the more-than-human neighbors: tide, water, air quality, sunrise and sunset, plover protection season, park alerts, the birds people logged nearby this week, and other recent wildlife sightings, each with its source and fetch time.",
             inputSchema: { type: "object", properties: {}, additionalProperties: false },
         },
         {

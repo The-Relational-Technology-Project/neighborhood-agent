@@ -195,3 +195,26 @@ describe("doors for life changes", () => {
     expect(BEHAVIOR).toContain("Point to the group, never to a member");
   });
 });
+
+describe("sun times", () => {
+  const hm = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "America/Los_Angeles", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+  const near = (got: string, want: string, tol = 3) => {
+    const mins = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3));
+    expect(Math.abs(mins(got) - mins(want)), `${got} vs ${want}`).toBeLessThanOrEqual(tol);
+  };
+  it("matches published sunrise and sunset for San Francisco in winter and summer", async () => {
+    const { sunTimes } = await import("../src/vitals/feeds.js");
+    const nov = sunTimes("2026-11-18", 37.753, -122.505)!;
+    near(hm(nov.rise), "06:53");
+    near(hm(nov.set), "16:56");
+    const jun = sunTimes("2026-06-21", 37.753, -122.505)!;
+    near(hm(jun.rise), "05:48");
+    near(hm(jun.set), "20:35");
+    expect(nov.dawn.getTime()).toBeLessThan(nov.rise.getTime());
+    expect(nov.dusk.getTime()).toBeGreaterThan(nov.set.getTime());
+  });
+  it("says so when the sun does not rise", async () => {
+    const { sunTimes } = await import("../src/vitals/feeds.js");
+    expect(sunTimes("2026-12-21", 78.2, 15.6)).toBeNull();
+  });
+});
