@@ -8,7 +8,7 @@ export const openTools = toolDefinitions.map((t) => ({
 }));
 /** The tools that only read. When a model is made to look before it speaks, these are all it is offered:
  *  being pushed to act must never mean drafting a change or writing to a neighbor. */
-const READ_ONLY = new Set(["search_data", "get_vital_signs", "lookup_person_or_place", "about_block", "city_311"]);
+const READ_ONLY = new Set(["search_data", "get_vital_signs", "lookup_person_or_place", "about_block", "welcome_neighbor", "city_311"]);
 export const lookTools = openTools.filter((t) => READ_ONLY.has(t.function.name));
 /** Reasoning some open models leave in the visible answer. */
 export function stripThinking(text) {
