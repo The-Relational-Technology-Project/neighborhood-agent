@@ -2,6 +2,8 @@ import { localDate } from "../data/index.js";
 import { httpFetch } from "../data/loader.js";
 import { streetKey } from "./geo.js";
 const NOTE = "From the city's published schedule. The signs on the block are the last word, and they change: read them when you park.";
+/** A schedule's holiday column is not the ticketing rule; in most cities cleaning is enforced on most holidays. */
+const HOLIDAYS = "Holidays: the schedule does not say which holidays are days off, and most are not. Check the city's holiday enforcement list before leaving the car.";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export function findSweepSource(repo) {
     return repo.sources.find((s) => s.status === "live" && String(s.live_query ?? "") === "street-sweeping");
@@ -74,7 +76,7 @@ export async function sweepingFor(repo, block) {
         if (!res.ok)
             throw new Error(`street cleaning data ${res.status}`);
         const sides = toSides(rowsForBlock((await res.json()), block));
-        value = sides.length ? { block_id: block.id, block: block.name, sides, source: { name: src.name, url: src.url, license: src.license ?? null }, fetched_at: new Date().toISOString(), note: NOTE } : undefined;
+        value = sides.length ? { block_id: block.id, block: block.name, sides, source: { name: src.name, url: src.url, license: src.license ?? null }, fetched_at: new Date().toISOString(), note: NOTE, holidays_note: typeof cfg.holiday_note === "string" && cfg.holiday_note.trim() ? cfg.holiday_note.trim() : HOLIDAYS } : undefined;
     }
     catch (err) {
         console.warn("[sweeping]", block.id, err.message);
@@ -91,7 +93,7 @@ export async function sweepingForBlocks(repo, blocks) {
     return (await Promise.all(blocks.slice(0, 4).map((b) => sweepingFor(repo, b)))).filter((s) => Boolean(s));
 }
 export function formatSweeping(s) {
-    const lines = s.sides.map((x) => `- ${x.side} side: ${x.days}, ${hour(x.from)} to ${hour(x.to)}${x.next ? ` (next: ${x.next})` : ""}${x.holidays ? "" : "; not on city holidays"}`);
-    return [`Street cleaning on ${s.block} (${s.source.name}, ${s.source.url}):`, ...lines, s.note].join("\n");
+    const lines = s.sides.map((x) => `- ${x.side} side: ${x.days}, ${hour(x.from)} to ${hour(x.to)}${x.next ? ` (next: ${x.next})` : ""}`);
+    return [`Street cleaning on ${s.block} (${s.source.name}, ${s.source.url}):`, ...lines, s.holidays_note, s.note].join("\n");
 }
 //# sourceMappingURL=sweeping.js.map
