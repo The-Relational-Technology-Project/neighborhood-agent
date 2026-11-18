@@ -41,8 +41,10 @@ describe("street cleaning for a block", () => {
   it("says nothing for a place with no street cleaning source, and says whose word is last when it has one", async () => {
     const { sweepingForBlocks, formatSweeping, toSides, rowsForBlock } = await import("../src/blocks/sweeping.js");
     expect(await sweepingForBlocks({ sources: [] }, [block])).toEqual([]);
-    const text = formatSweeping({ block_id: block.id, block: block.name, sides: toSides(rowsForBlock(rows, block), "2026-11-14"), source: { name: "City street sweeping schedule", url: "https://example.org", license: null }, fetched_at: "2026-11-14T00:00:00Z", note: "The signs on the block are the last word." });
-    expect(text).toContain("East side: Mon 13, noon to 2pm (next: 2026-11-16); not on city holidays");
+    const text = formatSweeping({ block_id: block.id, block: block.name, sides: toSides(rowsForBlock(rows, block), "2026-11-14"), source: { name: "City street sweeping schedule", url: "https://example.org", license: null }, fetched_at: "2026-11-14T00:00:00Z", note: "The signs on the block are the last word.", holidays_note: "Holidays: only three are days off here; most are not." });
+    expect(text).toContain("East side: Mon 13, noon to 2pm (next: 2026-11-16)");
+    expect(text).not.toContain("not on city holidays");
+    expect(text).toContain("most are not");
     expect(text).toContain("The signs on the block are the last word.");
   });
 });

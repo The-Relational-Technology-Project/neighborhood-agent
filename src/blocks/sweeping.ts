@@ -24,7 +24,7 @@ export interface SweepSide {
   to: number;
   /** Which of that weekday in the month: [1, 3] means the first and third. */
   weeks: number[];
-  /** Whether it is swept on holidays. */
+  /** The schedule's own holiday column, as published. It does not say when parking tickets are written: see Sweeping.holidays_note. */
   holidays: boolean;
   /** The next day it is due, YYYY-MM-DD in the place's time zone (holidays not considered). */
   next: string | null;
@@ -37,9 +37,13 @@ export interface Sweeping {
   source: { name: string; url: string; license: string | null };
   fetched_at: string;
   note: string;
+  /** What is true of holidays here, in words: which few are days off. From the source's holiday_note, or a caution when it has none. */
+  holidays_note: string;
 }
 
 const NOTE = "From the city's published schedule. The signs on the block are the last word, and they change: read them when you park.";
+/** A schedule's holiday column is not the ticketing rule; in most cities cleaning is enforced on most holidays. */
+const HOLIDAYS = "Holidays: the schedule does not say which holidays are days off, and most are not. Check the city's holiday enforcement list before leaving the car.";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function findSweepSource(repo: Pick<DataRepo, "sources">): SourceDef | undefined {
@@ -109,7 +113,7 @@ export async function sweepingFor(repo: Pick<DataRepo, "sources">, block: Block)
     const res = await httpFetch(`https://${String(cfg.domain)}/resource/${String(cfg.dataset)}.json?${u}`, { headers: token ? { "X-App-Token": token } : {} });
     if (!res.ok) throw new Error(`street cleaning data ${res.status}`);
     const sides = toSides(rowsForBlock((await res.json()) as Row[], block));
-    value = sides.length ? { block_id: block.id, block: block.name, sides, source: { name: src.name, url: src.url, license: src.license ?? null }, fetched_at: new Date().toISOString(), note: NOTE } : undefined;
+    value = sides.length ? { block_id: block.id, block: block.name, sides, source: { name: src.name, url: src.url, license: src.license ?? null }, fetched_at: new Date().toISOString(), note: NOTE, holidays_note: typeof cfg.holiday_note === "string" && cfg.holiday_note.trim() ? cfg.holiday_note.trim() : HOLIDAYS } : undefined;
   } catch (err) {
     console.warn("[sweeping]", block.id, (err as Error).message);
     return undefined; // not cached: try again next time
@@ -127,6 +131,6 @@ export async function sweepingForBlocks(repo: Pick<DataRepo, "sources">, blocks:
 }
 
 export function formatSweeping(s: Sweeping): string {
-  const lines = s.sides.map((x) => `- ${x.side} side: ${x.days}, ${hour(x.from)} to ${hour(x.to)}${x.next ? ` (next: ${x.next})` : ""}${x.holidays ? "" : "; not on city holidays"}`);
-  return [`Street cleaning on ${s.block} (${s.source.name}, ${s.source.url}):`, ...lines, s.note].join("\n");
+  const lines = s.sides.map((x) => `- ${x.side} side: ${x.days}, ${hour(x.from)} to ${hour(x.to)}${x.next ? ` (next: ${x.next})` : ""}`);
+  return [`Street cleaning on ${s.block} (${s.source.name}, ${s.source.url}):`, ...lines, s.holidays_note, s.note].join("\n");
 }
