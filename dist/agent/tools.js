@@ -49,6 +49,20 @@ export const toolDefinitions = [
         strict: true,
     },
     {
+        name: "welcome_neighbor",
+        description: "Everything the notes hold for someone who just moved in, gathered in one call: the welcome this place wrote for new neighbors, their block's own facts and street cleaning days, the places closest to them, what is coming up in the next two weeks (nearest first), the groups glad to meet someone new, and matches for anything they said they like. Call it when a neighbor says they just moved here (or are about to), once they have said which block or shared their location, or have said they would rather not. Pass the block or corner in words; never a house number.",
+        input_schema: {
+            type: "object",
+            properties: {
+                where: { type: "string", description: "Their block or corner, streets only: '46th Ave between Moraga and Noriega', '46th and Judah', or a block id you were given. Empty string if they haven't said and no location is shared." },
+                interests: { type: "array", items: { type: "string" }, description: "Up to four things they mentioned, in a word or two each: 'surfing', 'a toddler', 'a dog', 'gardening', 'running'. Empty if none." },
+            },
+            required: ["where", "interests"],
+            additionalProperties: false,
+        },
+        strict: true,
+    },
+    {
         name: "city_311",
         description: "Live 311 data for the neighborhood from the city's open data: counts by type and status, and the most recent cases, optionally filtered by topic (pothole, graffiti, tree, noise, trash, encampment, parking, streetlight...), street, open/closed, and how many days back. Or look up one case by its number. Addresses come back at block level. Use this for anything about reported problems or a 311 case's status.",
         input_schema: {
@@ -145,6 +159,10 @@ export async function runTool(name, input, ctx) {
             const { sweepingForBlocks, formatSweeping } = await import("../blocks/sweeping.js");
             const blocks = about.resolved.status === "corner" ? about.resolved.blocks.slice(0, 4) : about.resolved.blocks.slice(0, 1);
             return [text, ...(await sweepingForBlocks(ctx.repo, blocks)).map(formatSweeping)].join("\n\n");
+        }
+        case "welcome_neighbor": {
+            const { welcomePack } = await import("./welcome.js");
+            return await welcomePack(ctx, { where: args.where ? String(args.where) : undefined, interests: Array.isArray(args.interests) ? args.interests.map(String) : [] });
         }
         case "city_311": {
             const { run311 } = await import("./city311.js");

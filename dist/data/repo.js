@@ -252,6 +252,7 @@ export async function loadRepo(root) {
         sha: await repoSha(root),
         placeMd,
         stewardsMd: await readText(path.join(root, "STEWARDS.md")),
+        welcomeMd: await readText(path.join(root, "welcome.md")),
         readmeMd: await readText(path.join(root, "README.md")),
         sources,
         constituents,

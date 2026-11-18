@@ -37,9 +37,9 @@ describe("system prompt", () => {
 
 describe("tools", () => {
   it("defines the read tools (strict) and draft_pr", () => {
-    expect(toolDefinitions.map((t) => t.name)).toEqual(["search_data", "get_vital_signs", "lookup_person_or_place", "about_block", "city_311", "draft_pr", "ask_a_neighbor"]);
-    for (const t of toolDefinitions.slice(0, 5)) expect((t as { strict?: boolean }).strict).toBe(true);
-    expect((toolDefinitions[5] as { strict?: boolean }).strict).toBeUndefined();
+    expect(toolDefinitions.map((t) => t.name)).toEqual(["search_data", "get_vital_signs", "lookup_person_or_place", "about_block", "welcome_neighbor", "city_311", "draft_pr", "ask_a_neighbor"]);
+    for (const t of toolDefinitions.slice(0, 6)) expect((t as { strict?: boolean }).strict).toBe(true);
+    expect((toolDefinitions[6] as { strict?: boolean }).strict).toBeUndefined();
   });
 
   it("search_data returns records with source and fetch time", async () => {
@@ -216,5 +216,48 @@ describe("sun times", () => {
   it("says so when the sun does not rise", async () => {
     const { sunTimes } = await import("../src/vitals/feeds.js");
     expect(sunTimes("2026-12-21", 78.2, 15.6)).toBeNull();
+  });
+});
+
+describe("welcoming a new neighbor", () => {
+  it("gathers a welcome without a block, and asks for cross streets, never a house number", async () => {
+    const { repo, index } = await loadFixture();
+    const log = new QuestionLog(await fs.mkdtemp(path.join(os.tmpdir(), "ql-")));
+    const out = await runTool("welcome_neighbor", { where: "", interests: [] }, { repo, index, log });
+    expect(out).toContain("# The welcome this place wrote for new neighbors");
+    expect(out).toContain("# How to give it");
+    if (repo.blocks.length) expect(out).toMatch(/Never ask for a house number|never a house number/i);
+  });
+
+  it("tells the model to welcome in two steps and to make the invitation", () => {
+    expect(BEHAVIOR).toContain("Welcoming a new neighbor");
+    expect(BEHAVIOR).toContain("welcome_neighbor");
+    expect(BEHAVIOR).toMatch(/Never a house number/);
+  });
+
+  it("uses the place's own welcome and puts the closest things first when the block is known", async () => {
+    const { loadRepo } = await import("../src/data/repo.js");
+    const { SearchIndex } = await import("../src/data/index.js");
+    const { welcomePack } = await import("../src/agent/welcome.js");
+    const { OUTER_SUNSET } = await import("./helpers.js");
+    let repo;
+    try { repo = await loadRepo(OUTER_SUNSET); } catch { return; }
+    if (!repo.welcomeMd || !repo.blocks.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const src = { id: "t", name: "Test calendar", url: "https://example.org" };
+    const ev = (id: string, title: string, location: string) => ({ id, kind: "event" as const, title, text: "", date: today, location, source: src, fetched_at: new Date().toISOString() });
+    const index = new SearchIndex([ev("t:1", "Potluck", "Sunset Village Music Hall, 4114 Judah St"), ev("t:2", "Potluck — every week", "4114 Judah St, San Francisco"), ev("t:3", "Tai chi", "Sunset Rec Center, 2201 Lawton St")]);
+    const out = await welcomePack({ repo, index }, { where: "44th Ave between Judah and Kirkham", interests: [] });
+    expect(out).toContain("Sunset Social Club");
+    expect(out).toContain("coffee and donuts");
+    expect(out).toContain("The block: 44th Ave, Judah to Kirkham");
+    const close = out.split("# Places in the notes close to their block")[1] ?? "";
+    expect(close.indexOf("Far Out West")).toBeGreaterThan(-1);
+    expect(close.indexOf("Far Out West")).toBeLessThan(close.indexOf("Ortega Branch Library"));
+    // The same gathering from two calendars shows once, and a venue with "Sunset" in its name is not put on Sunset Blvd.
+    expect(out.match(/- Potluck/g)?.length).toBe(1);
+    const near = out.split("# Coming up within a short walk")[1]?.split("\n# ")[0] ?? "";
+    expect(near).toContain("Potluck");
+    expect(near).not.toContain("Tai chi");
   });
 });

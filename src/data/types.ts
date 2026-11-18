@@ -108,6 +108,8 @@ export interface Person {
 export interface Place {
   name: string;
   address?: string;
+  /** A corner or block near it, in words the block grid knows ("46th Ave and Judah"), when the address alone can't be placed. */
+  near?: string;
   what?: string;
   url?: string;
   hours?: string | null;
@@ -201,6 +203,8 @@ export interface DataRepo {
   sha?: string;
   placeMd: string;
   stewardsMd: string;
+  /** The place's own welcome for someone who just moved in (welcome.md). Empty when the place has none. */
+  welcomeMd: string;
   readmeMd: string;
   sources: SourceDef[];
   constituents: Constituent[];

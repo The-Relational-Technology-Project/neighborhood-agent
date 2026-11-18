@@ -172,7 +172,7 @@ export const chatScript = String.raw`
             var evm = chunk.match(/^event: (\w+)\ndata: (.*)$/s); if (!evm) return;
             var data = JSON.parse(evm[2]);
             if (evm[1] === 'text') { text += data; out.textContent = ''; out.appendChild(linkify(text)); follow(); }
-            else if (evm[1] === 'tool') { var t = el('div', 'tool', ({ search_data: 'checking the neighborhood notes…', get_vital_signs: 'checking the tide, the sky and the birds…', lookup_person_or_place: 'looking that up…', draft_pr: 'drafting that…', ask_a_neighbor: 'finding a neighbor to ask…', city_311: 'checking 311…', about_block: 'looking up that block…' })[data] || 'looking…'); log.insertBefore(t, out.parentNode.nextSibling); }
+            else if (evm[1] === 'tool') { var t = el('div', 'tool', ({ search_data: 'checking the neighborhood notes…', get_vital_signs: 'checking the tide, the sky and the birds…', lookup_person_or_place: 'looking that up…', draft_pr: 'drafting that…', ask_a_neighbor: 'finding a neighbor to ask…', city_311: 'checking 311…', about_block: 'looking up that block…', welcome_neighbor: 'putting a welcome together…' })[data] || 'looking…'); log.insertBefore(t, out.parentNode.nextSibling); }
             else if (evm[1] === 'draft') { addDraft(data); }
             else if (evm[1] === 'ask') { addAsk(data); }
             else if (evm[1] === 'error') { out.textContent = data; out.classList.add('err'); }
