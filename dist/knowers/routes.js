@@ -5,6 +5,7 @@ import { emailStewards, stewardAddresses } from "../notify/email.js";
 import { answerPage, blocksPage, commonsPage, confirmOfferPage, linkPage, notePage, stopPage } from "../web/commons.js";
 import { open, seal, sealReady } from "./seal.js";
 const DAY = 24 * 60 * 60 * 1000;
+const MIN_FILL_MS = 4000;
 const EMAIL = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/;
 const one = (v, max) => String(v ?? "").replace(/[\r\n\t]+/g, " ").trim().slice(0, max);
 const many = (v, max) => String(v ?? "").replace(/\r/g, "").trim().slice(0, max);
@@ -18,6 +19,7 @@ export function askCard(a) {
 }
 export function registerCommons(app, state, deps) {
     const offers = new RateLimiter(3, 60 * 60 * 1000);
+    const offersToday = new RateLimiter(25, DAY);
     const asks = new RateLimiter(4, 60 * 60 * 1000);
     const perKnower = new RateLimiter(6, DAY);
     const shares = new RateLimiter(5, 60 * 60 * 1000);
@@ -58,10 +60,19 @@ export function registerCommons(app, state, deps) {
         const o = { name: one(form.name, 80), email: one(form.email, 200).toLowerCase(), knows: one(form.knows, 400), described_as: one(form.described_as, 100) || "a neighbor" };
         if (!o.name || !EMAIL.test(o.email))
             return page(c, { error: "A name and a working email are both needed. They stay private." });
-        if (o.knows.length < 8)
-            return page(c, { error: "Say a little about what neighbors could ask you." });
+        // One unbroken run of letters is what form-filling bots send, and it tells a neighbor nothing either.
+        if (o.knows.length < 8 || /^[A-Za-z0-9]+$/.test(o.knows))
+            return page(c, { error: "Say a little about what neighbors could ask you, in a few words." });
+        // This route emails an address a stranger typed. Only a form this server handed out counts, and not one filled in faster than a person can type.
+        const served = open("form", String(form.at ?? ""));
+        if (!served)
+            return page(c, { error: "This page had been open a while. Please fill it in once more." });
+        if (Date.now() - served < MIN_FILL_MS)
+            return page(c, sent);
         if (!offers.allow(deps.clientIp(c)) || !offers.allow(o.email))
             return page(c, { error: "Too many in a row. Try again in a little while." });
+        if (!offersToday.allow("all"))
+            return page(c, { error: "A lot of offers came in today. Try again tomorrow, or write to the stewards." });
         const link = `${deps.siteBase(c)}/commons/confirm?t=${seal("offer", o, 3 * DAY)}`;
         try {
             await state.mail({
