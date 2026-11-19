@@ -6,7 +6,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { secret } from "../agent/drafts.js";
 
-export type SealPurpose = "offer" | "ask" | "answer" | "stop";
+export type SealPurpose = "offer" | "ask" | "answer" | "stop" | "form";
 
 /** Without a real secret the key would be guessable, so everything sealed stays off. */
 export function sealReady(): boolean {

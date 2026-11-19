@@ -5,8 +5,11 @@
 import { isActiveKnower } from "../adapters/repo.js";
 import { aboutBlock } from "../blocks/geo.js";
 import { esc, md } from "./html.js";
+import { seal } from "../knowers/seal.js";
 import { shell } from "./pages.js";
 const HP = '<input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off" aria-hidden="true">';
+/** When this copy of the form was served, sealed. The offer route sends mail to an address a stranger typed, so it wants a form that was really loaded and not filled in within a second or two. */
+const formStamp = () => seal("form", Date.now(), 24 * 60 * 60 * 1000);
 const noteName = (d) => d.file.replace(/\.md$/, "");
 export function commonsPage(state, opts) {
     const knowers = state.repo.knowers.filter(isActiveKnower);
@@ -27,7 +30,7 @@ ${opts.relay ? `<form method="post" action="/commons/offer" class="card">
   <label for="o-as">How should Knowy describe you? <small>(shown here; no name needed)</small></label><input type="text" id="o-as" name="described_as" maxlength="100" placeholder="a neighbor on 46th since 1974">
   <label for="o-name">Your name <small>(private)</small></label><input type="text" id="o-name" name="name" required maxlength="80" autocomplete="name">
   <label for="o-email">Your email <small>(private)</small></label><input type="email" id="o-email" name="email" required maxlength="200" autocomplete="email">
-  ${HP}
+  ${HP}<input type="hidden" name="at" value="${formStamp()}">
   <p style="margin:16px 0 0"><button type="submit">Send me a link to confirm</button></p>
 </form>` : `<p class="note">This isn't switched on here yet. <a href="/contact">Write to the stewards</a> and they'll let you know when it is.</p>`}
 <h2 id="share">Share something you know</h2>

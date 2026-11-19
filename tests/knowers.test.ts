@@ -125,11 +125,12 @@ describe("the relay, end to end", () => {
     const form = (data: Record<string, string>) => ({ method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString() });
     return { state, app, mail, form, cacheDir };
   }
+  const loadedAgo = (ms: number) => seal("form", Date.now() - ms, 60 * 60 * 1000);
   const linkIn = (text: string, p: string) => text.match(new RegExp(`https://knowy\\.test(${p}\\?t=[\\w-]+)`))![1];
 
   it("offer: nothing is stored until the neighbor confirms from their own email; then stewards get the public part only", async () => {
     const { state, app, mail, form, cacheDir } = await setup();
-    const res = await app.request("/commons/offer", form({ name: "Pat Example", email: "Pat@Example.org", knows: "Carville and the car houses", described_as: "a neighbor on 47th since 1970" }));
+    const res = await app.request("/commons/offer", form({ name: "Pat Example", email: "Pat@Example.org", knows: "Carville and the car houses", described_as: "a neighbor on 47th since 1970", at: loadedAgo(60_000) }));
     expect(await res.text()).toContain("Check your email");
     expect(mail).toHaveLength(1);
     expect(mail[0].to).toBe("pat@example.org");
@@ -151,6 +152,18 @@ describe("the relay, end to end", () => {
     expect(toStewards.text).toContain(`ref: ${ref}`);
     expect(toStewards.text).not.toMatch(/Pat Example|pat@example\.org/);
     expect(state.repo.knowers.length).toBeGreaterThan(0);
+  });
+
+  it("offer: no mail goes out for a form that wasn't loaded, was filled in at once, or holds one run of letters", async () => {
+    const { app, mail, form } = await setup();
+    const pat = { name: "Pat Example", email: "pat@example.org", knows: "Carville and the car houses" };
+    expect(await (await app.request("/commons/offer", form(pat))).text()).toContain("open a while");
+    expect(await (await app.request("/commons/offer", form({ ...pat, at: loadedAgo(500) }))).text()).toContain("Check your email");
+    expect(await (await app.request("/commons/offer", form({ name: "NlXigDdmerSDtBMXZ", email: "someone@example.com", knows: "AfqVMlRAtDHTCDonRvZU", at: loadedAgo(60_000) }))).text()).toContain("in a few words");
+    expect(mail).toHaveLength(0);
+    // The form the page serves carries the stamp.
+    const at = (await (await app.request("/commons")).text()).match(/name="at" value="([\w-]+)"/)![1];
+    expect(open<number>("form", at)).toBeGreaterThan(Date.now() - 5000);
   });
 
   it("ask with an email: the knower gets the question, reply-to is the asker, and the asker never sees an address", async () => {
